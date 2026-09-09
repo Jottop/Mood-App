@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/special_badge.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../home/widgets/mood_sphere_visual.dart';
 import 'day_detail_screen.dart';
+import 'monthly_summary.dart';
 
 const _weekdayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const _monthNames = [
@@ -38,6 +40,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() => _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta));
   }
 
+  /// Cuenta los registros del mes visible agrupados por emoción y devuelve
+  /// como máximo [MonthlySummary.maxTopMoods] con su porcentaje de uso
+  /// (los estados eliminados del catálogo no se cuentan).
+  List<MonthlySummaryItem> _buildMonthSummary(
+    MoodProvider moodProvider,
+    MoodCatalogProvider catalog,
+  ) {
+    final counts = <String, int>{};
+    var total = 0;
+    for (final e in moodProvider.allEntries) {
+      if (e.timestamp.year != _visibleMonth.year || e.timestamp.month != _visibleMonth.month) {
+        continue;
+      }
+      if (catalog.byId(e.moodId).id == '_unknown') continue;
+      counts[e.moodId] = (counts[e.moodId] ?? 0) + 1;
+      total += 1;
+    }
+
+    final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      for (final e in sorted.take(MonthlySummary.maxTopMoods))
+        MonthlySummaryItem(
+          mood: catalog.byId(e.key),
+          count: e.value,
+          pct: total == 0 ? 0 : e.value / total * 100,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
@@ -56,6 +87,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       body: Consumer2<MoodProvider, MoodCatalogProvider>(
         builder: (context, moodProvider, catalog, _) {
+          final monthSummary = _buildMonthSummary(moodProvider, catalog);
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
             children: [
@@ -93,7 +125,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const crossAxisCount = 7;
                   const spacing = 4.0;
                   const bubbleSize = 36.0;
-                  const labelHeight = 18.0;
+                  const labelHeight = 22.0;
                   final cellWidth = (constraints.maxWidth - spacing * (crossAxisCount - 1)) / crossAxisCount;
                   // El alto de cada celda depende del contenido real
                   // (burbuja + número), no de un aspect ratio adivinado
@@ -116,10 +148,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
                       final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
                       final isFuture = date.isAfter(DateTime(today.year, today.month, today.day));
-                      final colors = moodProvider
-                          .entriesForDateAsc(date)
+                      final entriesAsc = moodProvider.entriesForDateAsc(date);
+                      final colors = entriesAsc.map((e) => catalog.byId(e.moodId).color).toList();
+                      final auraColors = entriesAsc
+                          .where((e) => catalog.byId(e.moodId).isSpecial)
                           .map((e) => catalog.byId(e.moodId).color)
                           .toList();
+                      final hasSpecial = auraColors.isNotEmpty;
 
                       return GestureDetector(
                         onTap: isFuture
@@ -136,20 +171,57 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               Container(
                                 width: bubbleSize,
                                 height: bubbleSize,
-                                decoration: isToday
-                                    ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.ink, width: 1.4))
-                                    : null,
                                 padding: const EdgeInsets.all(2),
                                 child: MoodSphereVisual(
                                   colorsTopToBottom: colors.reversed.toList(),
                                   size: bubbleSize - 4,
-                                  // Brillos/glass activos: con RepaintBoundary
-                                  // el repintado por scroll se mantiene barato.
-                                  glassEffects: true,
+                                  // Modo compacto: miniaturas sin blur
+                                  // (la mayor parte del costo), con un solo
+                                  // arco nítido + blob + rim. Evita el lag
+                                  // al pintar ~37 burbujas por mes.
+                                  compact: true,
+                                  // Aura simple sin blur: un anillo
+                                  // degradado con los colores especiales.
+                                  auraColors: auraColors,
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Text('$day', style: const TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+                              SizedBox(
+                                height: labelHeight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // El día de hoy se identifica por el número (y el
+                                    // ícono especial si lo hay) dentro de
+                                    // una píldora oscura.
+                                    if (isToday)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.ink,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('$day', style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                                            if (hasSpecial) ...[
+                                              const SizedBox(width: 2),
+                                              const SpecialBadge(size: 11, color: Colors.white),
+                                            ],
+                                          ],
+                                        ),
+                                      )
+                                    else ...[
+                                      Text('$day', style: const TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+                                      if (hasSpecial) ...[
+                                        const SizedBox(width: 2),
+                                        const SpecialBadge(size: 11),
+                                      ],
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -158,6 +230,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   );
                 },
               ),
+              const SizedBox(height: 22),
+              MonthlySummary(items: monthSummary),
             ],
           );
         },

@@ -67,7 +67,7 @@ class HistoryScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    DayEntryList(entriesDesc: entries),
+                    DayEntryList(entriesDesc: entries, date: entries.first.timestamp),
                   ],
                 ),
               );

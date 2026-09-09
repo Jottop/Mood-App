@@ -24,6 +24,21 @@ class MoodEntry {
   bool get isBackdated =>
       loggedAt.year != timestamp.year || loggedAt.month != timestamp.month || loggedAt.day != timestamp.day;
 
+  /// Copia el registro cambiando solo lo indicado (se usa para reordenar
+  /// el timestamp dentro de un día y para restaurar una entrada borrada).
+  MoodEntry copyWith({
+    String? id,
+    String? moodId,
+    DateTime? timestamp,
+    DateTime? loggedAt,
+  }) =>
+      MoodEntry(
+        id: id ?? this.id,
+        moodId: moodId ?? this.moodId,
+        timestamp: timestamp ?? this.timestamp,
+        loggedAt: loggedAt ?? this.loggedAt,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'moodId': moodId,

@@ -20,6 +20,11 @@ import 'debounced_persistence.dart';
 class MoodProvider extends ChangeNotifier {
   MoodProvider({required MoodRepository repository}) : _repository = repository;
 
+  /// Máximo óptimo de emociones por día. Superarlo no bloquea: la UI
+  /// advierte al usuario, quien puede confirmar para agregar de todas
+  /// formas.
+  static const int maxOptimalEntries = 10;
+
   final MoodRepository _repository;
   final _uuid = const Uuid();
 
@@ -151,12 +156,54 @@ class MoodProvider extends ChangeNotifier {
     _persistence.schedule();
   }
 
-  /// Borra todos los registros del día actual (no toca días anteriores).
-  Future<void> resetToday() async {
-    final now = DateTime.now();
-    final todayKey = DateService.localDayKey(now);
-    _setEntries(_entries.where((e) => DateService.localDayKey(e.timestamp) != todayKey).toList());
+  /// Vuelve a insertar un registro recién borrado (deshacer de la
+  /// eliminación rápida). Conserva su [MoodEntry.id] y su [timestamp], así
+  /// que recupera exactamente el mismo lugar dentro del día. Si el id ya
+  /// existe (el deshacer se tocó dos veces, por ejemplo) no hace nada.
+  Future<void> restoreEntry(MoodEntry entry) async {
+    if (_entries.any((e) => e.id == entry.id)) return;
+    _setEntries([..._entries, entry]);
     notifyListeners();
     _persistence.schedule();
   }
+
+  /// Reordena los registros de un día según el orden VISIBLE arrastrado
+  /// por el usuario ([displayOrderIds], de más reciente a más antiguo,
+  /// igual que las listas de la UI). Como el orden de la pantalla deriva
+  /// del timestamp, se reasigna el MISMO conjunto de timestamps dentro del
+  /// día: el registro que pasó arriba recibe el timestamp más reciente del
+  /// día y así sucesivamente — las horas no cambian, solo se reparten.
+  Future<void> reorderDayEntries(DateTime date, List<String> displayOrderIds) async {
+    final dayKey = DateService.localDayKey(date);
+    final dayEntries = _entries
+        .where((e) => DateService.localDayKey(e.timestamp) == dayKey)
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final oldTsAsc = [for (final e in dayEntries) e.timestamp];
+    if (oldTsAsc.length != displayOrderIds.length) return;
+
+    // De más antiguo (fondo de la pantalla) a más reciente (arriba).
+    final ascIds = displayOrderIds.reversed.toList();
+    final reassigned = <String, DateTime>{
+      for (var i = 0; i < ascIds.length; i++) ascIds[i]: oldTsAsc[i],
+    };
+
+    _setEntries([
+      for (final e in _entries)
+        reassigned.containsKey(e.id) ? e.copyWith(timestamp: reassigned[e.id]!) : e,
+    ]);
+    notifyListeners();
+    _persistence.schedule();
+  }
+
+  /// Borra todos los registros de un día cualquiera (no toca los demás).
+  Future<void> resetDay(DateTime date) async {
+    final dayKey = DateService.localDayKey(date);
+    _setEntries(_entries.where((e) => DateService.localDayKey(e.timestamp) != dayKey).toList());
+    notifyListeners();
+    _persistence.schedule();
+  }
+
+  /// Borra todos los registros del día actual (no toca días anteriores).
+  Future<void> resetToday() => resetDay(DateTime.now());
 }

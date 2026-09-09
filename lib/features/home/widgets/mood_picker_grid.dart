@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/special_badge.dart';
 import '../../../data/models/mood_type.dart';
 
 /// Selector rápido en grilla: 4 columnas, máximo 2 filas visibles. Si el
@@ -13,6 +14,11 @@ class MoodPickerGrid extends StatelessWidget {
   final List<MoodType> moods;
   final void Function(String moodId) onSelect;
 
+  /// Cuántas veces está registrada cada emoción en el día que se está
+  /// editando (`moodId -> cantidad`). Si una emoción no está en el mapa,
+  /// su chip no muestra contador.
+  final Map<String, int> moodsCount;
+
   static const _crossAxisCount = 4;
   static const _visibleRows = 2;
   static const _spacing = 8.0;
@@ -20,7 +26,12 @@ class MoodPickerGrid extends StatelessWidget {
   // el círculo grande con el color real.
   static const _aspectRatio = 1.0;
 
-  const MoodPickerGrid({super.key, required this.moods, required this.onSelect});
+  const MoodPickerGrid({
+    super.key,
+    required this.moods,
+    required this.onSelect,
+    this.moodsCount = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +63,8 @@ class MoodPickerGrid extends StatelessWidget {
                 emoji: mood.emoji,
                 label: mood.label,
                 color: mood.color,
+                isSpecial: mood.isSpecial,
+                count: moodsCount[mood.id] ?? 0,
                 onTap: () => onSelect(mood.id),
               );
             },
@@ -66,12 +79,16 @@ class _MoodChip extends StatefulWidget {
   final String emoji;
   final String label;
   final Color color;
+  final bool isSpecial;
+  final int count;
   final VoidCallback onTap;
 
   const _MoodChip({
     required this.emoji,
     required this.label,
     required this.color,
+    required this.isSpecial,
+    required this.count,
     required this.onTap,
   });
 
@@ -130,20 +147,69 @@ class _MoodChipState extends State<_MoodChip> with SingleTickerProviderStateMixi
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-                child: Text(widget.emoji, style: const TextStyle(fontSize: 19)),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+                    child: Text(widget.emoji, style: const TextStyle(fontSize: 19)),
+                  ),
+                  // Insignia con la cantidad de veces que esta emoción ya
+                  // está registrada en el día. Va sobre el círculo, dentro
+                  // de la tarjeta, para no desbordar la celda.
+                  if (widget.count > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 16),
+                        height: 16,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          '${widget.count}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Color.lerp(widget.color, Colors.black, 0.62),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: labelColor),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: labelColor),
+                    ),
+                  ),
+                  if (widget.isSpecial) ...[
+                    const SizedBox(width: 2),
+                    const SpecialBadge(size: 11),
+                  ],
+                ],
               ),
             ],
           ),

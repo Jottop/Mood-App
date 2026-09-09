@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/special_badge.dart';
 import '../../../data/models/mood_entry.dart';
 import '../../../data/models/mood_type.dart';
 import '../../../services/date_service.dart';
@@ -29,12 +30,18 @@ class EntryCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
-            child: Text(mood.emoji, style: const TextStyle(fontSize: 22)),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
+                child: Text(mood.emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              if (mood.isSpecial) const Positioned(top: -7, right: -7, child: SpecialBadge()),
+            ],
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -71,9 +78,22 @@ class EntryCard extends StatelessWidget {
             ),
           ),
           if (onDelete != null)
-            GestureDetector(
-              onTap: onDelete,
-              child: Icon(Icons.close_rounded, size: 19, color: labelColor.withValues(alpha: 0.55)),
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Asa que sugiere que la tarjeta se puede mantener
+                  // presionada para reordenar (mismo patrón que la gestión
+                  // de estados).
+                  Icon(Icons.drag_indicator_rounded, size: 17, color: labelColor.withValues(alpha: 0.28)),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: onDelete,
+                    child: Icon(Icons.close_rounded, size: 19, color: labelColor.withValues(alpha: 0.55)),
+                  ),
+                ],
+              ),
             ),
         ],
       ),

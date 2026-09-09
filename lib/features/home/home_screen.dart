@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/mood_limit_dialog.dart';
 import '../../services/date_service.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
@@ -38,6 +39,16 @@ class HomeScreen extends StatelessWidget {
               final todaysColors = todaysAsc
                   .map((e) => catalog.byId(e.moodId).color)
                   .toList();
+              final todaysSpecial = todaysAsc
+                  .where((e) => catalog.byId(e.moodId).isSpecial)
+                  .map((e) => catalog.byId(e.moodId).color)
+                  .toList();
+              // Cuántas veces está registrada cada emoción hoy, para el
+              // contador de la grilla de selección.
+              final todaysCounts = <String, int>{};
+              for (final e in todaysAsc) {
+                todaysCounts[e.moodId] = (todaysCounts[e.moodId] ?? 0) + 1;
+              }
               final bubbleLabel = todaysAsc.isEmpty
                   ? 'Aún no registras cómo te sientes hoy'
                   : 'Ahora te sientes ${catalog.byId(todaysAsc.last.moodId).label.toLowerCase()}';
@@ -45,35 +56,66 @@ class HomeScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
                 children: [
-                  _Header(
-                    onHistoryTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                    ),
-                  ),
+                  const _Header(),
                   const SizedBox(height: 20),
-                  MoodBubble(todayColors: todaysColors, label: bubbleLabel),
+                  MoodBubble(todayColors: todaysColors, label: bubbleLabel, specialColors: todaysSpecial),
                   const SizedBox(height: 22),
                   const _PromptCard(),
                   const SizedBox(height: 22),
+                  // Fila sobre la grilla: acceso a la gestión de estados
+                  // (ahora todo el título es el botón) y reinicio del día.
                   Padding(
                     padding: const EdgeInsets.only(left: 2, right: 2, bottom: 10),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Mis estados de ánimo',
-                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.inkSoft),
-                        ),
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).push(
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const ManageMoodsScreen()),
                           ),
-                          child: const Icon(Icons.tune_rounded, size: 17, color: AppColors.inkSoft),
+                          icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.inkSoft),
+                          label: const Text(
+                            'Mis estados de ánimo',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.card,
+                            side: const BorderSide(color: AppColors.cardLine),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
                         ),
+                        if (todaysDesc.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => _confirmResetToday(context, provider),
+                            child: const Icon(Icons.restart_alt_rounded, size: 22, color: AppColors.inkSoft),
+                          ),
                       ],
                     ),
                   ),
-                  MoodPickerGrid(moods: catalog.moods, onSelect: provider.addEntry),
+                  MoodPickerGrid(
+                    moods: catalog.moods,
+                    moodsCount: todaysCounts,
+                    onSelect: (moodId) => _selectMood(context, provider, moodId),
+                  ),
+                  const SizedBox(height: 12),
+                  // Historial, justo arriba de la lista de emociones del día.
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                      ),
+                      icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
+                      label: const Text('Historial', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: AppColors.card,
+                        side: const BorderSide(color: AppColors.cardLine),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.only(left: 2, right: 2, bottom: 8),
@@ -84,26 +126,17 @@ class HomeScreen extends StatelessWidget {
                           'Hoy',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
                         ),
-                        Row(
-                          children: [
-                            if (todaysDesc.isNotEmpty) ...[
-                              Text(
-                                '${todaysDesc.length} registro${todaysDesc.length > 1 ? 's' : ''}',
-                                style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-                              ),
-                              const SizedBox(width: 10),
-                              GestureDetector(
-                                onTap: () => _confirmResetToday(context, provider),
-                                child: const Icon(Icons.restart_alt_rounded, size: 19, color: AppColors.inkSoft),
-                              ),
-                            ],
-                          ],
-                        ),
+                        if (todaysDesc.isNotEmpty)
+                          Text(
+                            '${todaysDesc.length} registro${todaysDesc.length > 1 ? 's' : ''}',
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+                          ),
                       ],
                     ),
                   ),
                   DayEntryList(
                     entriesDesc: todaysDesc,
+                    date: DateTime.now(),
                     emptyMessage: 'Toca un estado de ánimo arriba para registrar el primero de hoy.',
                   ),
                 ],
@@ -117,8 +150,7 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  final VoidCallback onHistoryTap;
-  const _Header({required this.onHistoryTap});
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
@@ -140,20 +172,17 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-        OutlinedButton.icon(
-          onPressed: onHistoryTap,
-          icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
-          label: const Text('Historial', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: AppColors.card,
-            side: const BorderSide(color: AppColors.cardLine),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-          ),
-        ),
       ],
     );
   }
+}
+
+Future<void> _selectMood(BuildContext context, MoodProvider provider, String moodId) async {
+  if (provider.todaysEntriesAsc.length >= MoodProvider.maxOptimalEntries) {
+    final proceed = await showMoodLimitDialog(context);
+    if (!proceed) return;
+  }
+  provider.addEntry(moodId);
 }
 
 Future<void> _confirmResetToday(BuildContext context, MoodProvider provider) async {

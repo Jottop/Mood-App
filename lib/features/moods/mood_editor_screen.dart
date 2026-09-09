@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../data/mood_catalog.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
+import 'widgets/custom_color_picker.dart';
 
 /// Formulario para crear un estado de ánimo nuevo, o editar/eliminar uno
 /// existente si se pasa [existing] (spec §1).
@@ -20,6 +21,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
   late final TextEditingController _labelController;
   late final TextEditingController _emojiController;
   late Color _selectedColor;
+  late bool _isSpecial;
 
   bool get _isEditing => widget.existing != null;
 
@@ -29,6 +31,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
     _labelController = TextEditingController(text: widget.existing?.label ?? '');
     _emojiController = TextEditingController(text: widget.existing?.emoji ?? '');
     _selectedColor = widget.existing?.color ?? MoodColorPalette.options.first;
+    _isSpecial = widget.existing?.isSpecial ?? false;
   }
 
   @override
@@ -40,15 +43,54 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
 
   bool get _isValid => _labelController.text.trim().isNotEmpty && _emojiController.text.trim().isNotEmpty;
 
+  /// `true` si el color actual no pertenece a la paleta rápida (cuando el
+  /// usuario eligió un color personalizado).
+  bool get _isCustomColorSelected =>
+      !MoodColorPalette.options.any((c) => c.toARGB32() == _selectedColor.toARGB32());
+
+  Future<void> _openCustomColorPicker() async {
+    final color = await showCustomColorPicker(context, initialColor: _selectedColor);
+    if (color != null && mounted) {
+      setState(() => _selectedColor = color);
+    }
+  }
+
   Future<void> _save() async {
     final catalog = context.read<MoodCatalogProvider>();
     final label = _labelController.text.trim();
     final emoji = _emojiController.text.trim();
 
     if (_isEditing) {
-      await catalog.updateMood(widget.existing!.id, label: label, emoji: emoji, color: _selectedColor);
+      await catalog.updateMood(
+        widget.existing!.id,
+        label: label,
+        emoji: emoji,
+        color: _selectedColor,
+        isSpecial: _isSpecial,
+      );
     } else {
-      await catalog.addMood(label: label, emoji: emoji, color: _selectedColor);
+      // Límite óptimo de 10 emociones: se advierte, pero se permite agregar
+      // de todas formas si el usuario lo confirma (spec §1).
+      if (catalog.moods.length >= MoodCatalogProvider.maxOptimalMoods) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Límite alcanzado'),
+            content: const Text(
+              'Ya tienes 10 emociones, que es el máximo óptimo para un uso fluido del selector. ¿Deseas agregarla de todas formas?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Agregar de todas formas'),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true || !mounted) return;
+      }
+      await catalog.addMood(label: label, emoji: emoji, color: _selectedColor, isSpecial: _isSpecial);
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -115,15 +157,39 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
                         color: previewCardBg,
                         borderRadius: BorderRadius.circular(22),
                       ),
-                      child: Container(
-                        width: 54,
-                        height: 54,
+                      child: Stack(
+                        clipBehavior: Clip.none,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(color: _selectedColor, shape: BoxShape.circle),
-                        child: Text(
-                          _emojiController.text.isEmpty ? '🙂' : _emojiController.text,
-                          style: const TextStyle(fontSize: 28),
-                        ),
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: _selectedColor, shape: BoxShape.circle),
+                            child: Text(
+                              _emojiController.text.isEmpty ? '🙂' : _emojiController.text,
+                              style: const TextStyle(fontSize: 28),
+                            ),
+                          ),
+                          if (_isSpecial)
+                            // Brillo sutil que anticipa el aura de la burbuja.
+                            IgnorePointer(
+                              child: Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _selectedColor.withValues(alpha: 0.55),
+                                      blurRadius: 16,
+                                      spreadRadius: 3,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -191,7 +257,49 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
                     ),
                   ),
                 ),
+              // Opcion de color personalizado al final de la fila.
+              _CustomColorTile(
+                selected: _isCustomColorSelected,
+                onTap: _openCustomColorPicker,
+              ),
             ],
+          ),
+          const SizedBox(height: 24),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.cardLine),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Emoción especial',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Se destacará con un aura alrededor de la burbuja',
+                        style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  value: _isSpecial,
+                  activeTrackColor: _selectedColor,
+                  onChanged: (v) => setState(() => _isSpecial = v),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -208,6 +316,35 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tile al final de la paleta rápida: círculo pálido con "+" que abre el
+/// selector de color personalizado.
+class _CustomColorTile extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CustomColorTile({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? AppColors.ink : AppColors.cardLine,
+            width: selected ? 3 : 1,
+          ),
+        ),
+        child: const Icon(Icons.add_rounded, size: 22, color: AppColors.inkSoft),
       ),
     );
   }

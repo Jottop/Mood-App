@@ -23,13 +23,60 @@ class ManageMoodsScreen extends StatelessWidget {
       ),
       body: Consumer<MoodCatalogProvider>(
         builder: (context, catalog, _) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 100),
+          // Una sola lectura: el getter copia la lista (O(N)), así que no
+          // conviene llamarlo por fila dentro de itemBuilder mientras el
+          // arrastre reconstruye las filas animadas.
+          final moods = catalog.moods;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final mood in catalog.moods) ...[
-                _MoodRow(mood: mood),
-                const SizedBox(height: 10),
-              ],
+              const Padding(
+                padding: EdgeInsets.fromLTRB(18, 6, 18, 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.drag_indicator_rounded, size: 16, color: AppColors.inkSoft),
+                    SizedBox(width: 6),
+                    Text(
+                      'Mantén presionado para reordenar',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
+                  buildDefaultDragHandles: false,
+                  proxyDecorator: (child, index, animation) => AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, _) => Material(
+                      color: Colors.transparent,
+                      elevation: 0,
+                      child: RepaintBoundary(
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 1.0, end: 1.03).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                  itemCount: moods.length,
+                  onReorderItem: (oldIndex, newIndex) => catalog.reorderMoods(oldIndex, newIndex),
+                  itemBuilder: (context, index) {
+                    final mood = moods[index];
+                    return Padding(
+                      key: ValueKey(mood.id),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: RepaintBoundary(
+                        child: ReorderableDelayedDragStartListener(
+                          index: index,
+                          child: _MoodRow(mood: mood),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           );
         },
@@ -79,9 +126,21 @@ class _MoodRow extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  mood.label,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        mood.label,
+                        softWrap: true,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
+                      ),
+                    ),
+                    if (mood.isSpecial) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.radar, size: 15, color: AppColors.inkSoft),
+                    ],
+                  ],
                 ),
               ),
               const Icon(Icons.chevron_right_rounded, color: AppColors.inkSoft),

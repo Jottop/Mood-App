@@ -19,6 +19,10 @@ class MoodCatalogProvider extends ChangeNotifier {
   final MoodCatalogRepository _repository;
   final _uuid = const Uuid();
 
+  /// Máximo óptimo de emociones recomendado para que el selector siga
+  /// siendo fluido. Superarlo no bloquea, solo advierte al usuario.
+  static const int maxOptimalMoods = 10;
+
   List<MoodType> _moods = [];
   Map<String, MoodType> _byId = const {};
   bool _loading = true;
@@ -51,17 +55,39 @@ class MoodCatalogProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addMood({required String label, required String emoji, required Color color}) async {
-    final mood = MoodType(id: _uuid.v4(), label: label, emoji: emoji, color: color);
+  Future<void> addMood({
+    required String label,
+    required String emoji,
+    required Color color,
+    bool isSpecial = false,
+  }) async {
+    final mood = MoodType(id: _uuid.v4(), label: label, emoji: emoji, color: color, isSpecial: isSpecial);
     _moods = [..._moods, mood];
     _rebuildIndex();
     notifyListeners();
     _persistence.schedule();
   }
 
-  Future<void> updateMood(String id, {String? label, String? emoji, Color? color}) async {
+  /// Reordena las emociones del catálogo (el nuevo orden se persiste y se
+  /// refleja también en el selector rápido). Recibe un [newIndex] ya
+  /// ajustado (semántica de `ReorderableListView.onReorderItem`).
+  Future<void> reorderMoods(int oldIndex, int newIndex) async {
+    final item = _moods[oldIndex];
+    _moods = [..._moods]..removeAt(oldIndex)..insert(newIndex, item);
+    _rebuildIndex();
+    notifyListeners();
+    _persistence.schedule();
+  }
+
+  Future<void> updateMood(
+    String id, {
+    String? label,
+    String? emoji,
+    Color? color,
+    bool? isSpecial,
+  }) async {
     _moods = _moods
-        .map((m) => m.id == id ? m.copyWith(label: label, emoji: emoji, color: color) : m)
+        .map((m) => m.id == id ? m.copyWith(label: label, emoji: emoji, color: color, isSpecial: isSpecial) : m)
         .toList();
     _rebuildIndex();
     notifyListeners();
