@@ -20,7 +20,7 @@ const double _auraBlurMargin = 0.008;
 /// stroke`) para que se lean bien aunque la burbuja sea chica y no rompan
 /// las celdas de ~40px.
 const double _auraCompactStep = 0.036;
-const double _auraCompactStroke = 0.016;
+const double _auraCompactStroke = 0.1;
 
 /// Combina el color (via [MoodSpherePainter]) con el brillo tipo vidrio,
 /// escalado según [size]. Se usa tanto en la burbuja principal (grande)
@@ -335,14 +335,14 @@ class _AuraPainter extends CustomPainter {
   }
 }
 
-/// Versión ultra barata del aura para las miniaturas del calendario: el
-/// MISMO concepto de anillos concéntricos delgados (orden de primera
-/// aparición), pero sin `MaskFilter.blur` — trazos muy finos y radios
-/// ajustados para no romper el diseño de las celdas (~40px). Un
-/// `drawCircle` por color, sin shaders; el `RepaintBoundary` cachea la
-/// capa tras el primer pintado (incluso con ~37 burbujas a la vista).
-/// Repetir una misma especial no cambia nada: un solo anillo al mismo
-/// alpha.
+/// Versión ultra barata del aura para las miniaturas del calendario: UN
+/// solo anillo fino (pegado a la burbuja) en el que los colores de las
+/// emociones especiales se REPARTEN como segmentos alrededor de la
+/// circunferencia, con una pequeña separación angular entre ellos (en orden
+/// de primera aparición). Sin `MaskFilter.blur` — una sola `drawArc` por
+/// color, sin shaders; el `RepaintBoundary` cachea la capa tras el primer
+/// pintado (incluso con ~37 burbujas a la vista). Repetir una misma
+/// especial no cambia nada: su color ocupa su único segmento al mismo alpha.
 class _AuraSimplePainter extends CustomPainter {
   final List<Color> colors;
   const _AuraSimplePainter({required this.colors});
@@ -354,18 +354,30 @@ class _AuraSimplePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final baseR = size.width / 2;
     const alpha = 0.6;
-    // Paso entre centros mayor que el grosor del trazo => separación leve
-    // entre anillos (se leen bien en las miniaturas sin romper la celda).
-    final step = size.width * _auraCompactStep;
+    // Separación angular (rad) entre los segmentos de color contiguos.
+    const gap = 0.14;
+    final n = layers.length;
+    // Arco de cada color: reparte 2π quitando un hueco por segmento.
+    final segmentSpan = math.max(0.0, (2 * math.pi - gap * n) / n);
 
-    for (var i = 0; i < layers.length; i++) {
-      final r = baseR + step * (i + 0.5);
-
+    // Un solo anillo separado de la burbuja: el centro queda dos pasos
+    // afuera del borde, así queda un hueco visible entre la burbuja y el
+    // interior del anillo (el trazo grueso no la tapa), con los colores en
+    // arcos.
+    final r = baseR + size.width * _auraCompactStep * 2;
+    for (var i = 0; i < n; i++) {
+      final start = i * (segmentSpan + gap);
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = size.width * _auraCompactStroke;
       paint.color = layers[i].withValues(alpha: alpha);
-      canvas.drawCircle(center, r, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: r),
+        start,
+        segmentSpan,
+        false,
+        paint,
+      );
     }
   }
 

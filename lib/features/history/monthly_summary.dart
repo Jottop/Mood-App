@@ -15,8 +15,10 @@ class MonthlySummaryItem {
   const MonthlySummaryItem({required this.mood, required this.count, required this.pct});
 }
 
-/// Sección "Resumen Mensual": muestra como máximo [_MonthlySummary.maxTopMoods]
-/// (6) emociones más usadas del mes. Arriba, burbujas de distintos tamaños
+/// Sección "Resumen Mensual": muestra las [_MonthlySummary.maxTopMoods] (6)
+/// emociones más usadas del mes con su porcentaje REAL de uso (si quedan
+/// emociones fuera del top se agrega un ítem "Otros" para que los
+/// porcentajes siempre sumen 100). Arriba, burbujas de distintos tamaños
 /// (área proporcional al porcentaje de uso) con el % dentro, dispuestas en
 /// una nube tipo pirámide con pequeños desplazamientos para que se sientan
 /// desordenadas; abajo, la leyenda con el nombre de cada emoción junto a su

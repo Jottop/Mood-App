@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/percentages.dart';
 import '../../core/widgets/special_badge.dart';
+import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../home/widgets/mood_sphere_visual.dart';
@@ -14,6 +16,15 @@ const _monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
+
+/// Emoción sintética "Otros": agrupa lo que queda del mes fuera del top-6,
+/// para que la tarjeta muestre porcentajes REALES del mes que suman 100.
+const _othersMood = MoodType(
+  id: '_others',
+  label: 'Otros',
+  emoji: '…',
+  color: Color(0xFFA7B0BC),
+);
 
 /// Historial en formato calendario: cada día muestra una burbuja chica
 /// con los colores de los estados registrados ese día (o vacía si no
@@ -41,32 +52,51 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   /// Cuenta los registros del mes visible agrupados por emoción y devuelve
-  /// como máximo [MonthlySummary.maxTopMoods] con su porcentaje de uso
-  /// (los estados eliminados del catálogo no se cuentan).
+  /// las [MonthlySummary.maxTopMoods] emociones más usadas con su porcentaje
+  /// REAL de uso del mes: se redondea con el método del resto mayor sobre
+  /// TODOS los estados del mes, así cada valor es su proporción verdadera y
+  /// la suma es exactamente 100. Si quedan emociones fuera del top, se
+  /// agrega un ítem "Otros" con su resto (los estados eliminados del
+  /// catálogo no se cuentan).
   List<MonthlySummaryItem> _buildMonthSummary(
     MoodProvider moodProvider,
     MoodCatalogProvider catalog,
   ) {
     final counts = <String, int>{};
-    var total = 0;
     for (final e in moodProvider.allEntries) {
       if (e.timestamp.year != _visibleMonth.year || e.timestamp.month != _visibleMonth.month) {
         continue;
       }
       if (catalog.byId(e.moodId).id == '_unknown') continue;
       counts[e.moodId] = (counts[e.moodId] ?? 0) + 1;
-      total += 1;
     }
 
     final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    return [
-      for (final e in sorted.take(MonthlySummary.maxTopMoods))
-        MonthlySummaryItem(
-          mood: catalog.byId(e.key),
-          count: e.value,
-          pct: total == 0 ? 0 : e.value / total * 100,
-        ),
-    ];
+    // Porcentajes enteros sobre el TOTAL del mes (Hamilton), en el mismo
+    // orden que sorted: cada uno es su proporción real del mes.
+    final pcts = distributePercentages([for (final e in sorted) e.value]);
+
+    final items = <MonthlySummaryItem>[];
+    for (var i = 0; i < sorted.length && i < MonthlySummary.maxTopMoods; i++) {
+      items.add(MonthlySummaryItem(
+        mood: catalog.byId(sorted[i].key),
+        count: sorted[i].value,
+        pct: pcts[i].toDouble(),
+      ));
+    }
+
+    // Emociones fuera del top: su porcentaje real (ya repartido en pcts) se
+    // agrupa en "Otros" para que la tarjeta siga sumando 100.
+    if (sorted.length > MonthlySummary.maxTopMoods) {
+      var restCount = 0;
+      var restPct = 0;
+      for (var i = MonthlySummary.maxTopMoods; i < sorted.length; i++) {
+        restCount += sorted[i].value;
+        restPct += pcts[i];
+      }
+      items.add(MonthlySummaryItem(mood: _othersMood, count: restCount, pct: restPct.toDouble()));
+    }
+    return items;
   }
 
   @override

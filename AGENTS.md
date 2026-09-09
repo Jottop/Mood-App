@@ -2,7 +2,16 @@
 
 Flutter app (Spanish UI) "Tu día": quick mood logging, per-day list,
 color-mixing bubble, history calendar, and an editable mood catalog.
-Offline only (SharedPreferences); Phase 1, no backend yet.
+**Phase 1 is done** (offline only: SharedPreferences, no backend yet).
+
+**Phase 2 is PLANNED but NOT implemented** — full plan in
+`docs/fase2-plan.md`, ready-to-paste schema in `supabase/init.sql`. Do not
+refactor `CalendarScreen`/`DayDetailScreen`/`DayEntryList` or the
+repositories without honoring that plan. Key Phase 2 decisions:
+login mandatory, username+password (Supabase keyed on the deterministic
+email `<username>@tu-dia.local`, email confirmation OFF in Auth settings),
+friends added instantly by friend code, RLS grants friends read-only access
+to `mood_catalog`/`mood_entries`, keys via `--dart-define`.
 
 ## Commands
 - `flutter analyze` — required gate after every change. There are NO tests
@@ -10,6 +19,8 @@ Offline only (SharedPreferences); Phase 1, no backend yet.
 - `flutter run` — run on a connected device/emulator.
 - Demo APK: `flutter build apk --release --split-per-abi`, then hand the
   user `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`.
+- Phase 2 (once implemented) must be run/built with
+  `--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...`.
 
 ## Conventions
 - All UI strings and code comments are in **Spanish** (code identifiers in
@@ -72,5 +83,13 @@ Offline only (SharedPreferences); Phase 1, no backend yet.
   month, bubble area ∝ usage % (pyramid cloud, jittered) using
   `MoodSphereVisual` (main-bubble design, no aura) with the % as
   overlay; legend centered as rows (dot + name, no %). Skips deleted moods
-  via `catalog.byId(id).id == '_unknown'`.
+  via `catalog.byId(id).id == '_unknown'`. Percentages are integers that
+  ALWAYS sum to exactly 100: shared helper `distributePercentages` in
+  `lib/core/utils/percentages.dart` (largest-remainder/Hamilton method),
+  used here (true month share; moods beyond the top-6 are aggregated into
+  a synthetic "Otros" item so the card still totals 100) and in
+  `day_detail_screen.dart` `_MoodSummary` (true partition of the day).
 - For UI work, load the repo skill `.opencode/skills/flutter-ui-ux`.
+- For any Supabase/Postgres work, load the repo skills in `.agents/skills/`
+  (`supabase`, `supabase-postgres-best-practices`) — installed with
+  `npx skills add supabase/agent-skills --agent opencode -y`.

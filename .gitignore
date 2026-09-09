@@ -46,3 +46,12 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Entorno y claves (nunca commitear credenciales)
+.env
+.env.*
+!.env.example
+
+# Supabase CLI (tokens/sesiones locales y estado de ramas)
+supabase/.temp/
+supabase/.branches/

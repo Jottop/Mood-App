@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/percentages.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
 import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_entry.dart';
@@ -189,10 +190,12 @@ class _MoodSummary extends StatelessWidget {
     for (final e in entriesAsc) {
       counts[e.moodId] = (counts[e.moodId] ?? 0) + 1;
     }
-    final total = entriesAsc.length;
 
     final sorted = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    // Porcentajes redondeados que SIEMPRE suman 100 (método del resto
+    // mayor), en el mismo orden que el desglose.
+    final pcts = distributePercentages([for (final e in sorted) e.value]);
 
     return Container(
       width: double.infinity,
@@ -205,7 +208,8 @@ class _MoodSummary extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          for (final entry in sorted) _SummaryItem(entry: entry, total: total, catalog: catalog),
+          for (var i = 0; i < sorted.length; i++)
+            _SummaryItem(entry: sorted[i], pct: pcts[i], catalog: catalog),
         ],
       ),
     );
@@ -214,15 +218,14 @@ class _MoodSummary extends StatelessWidget {
 
 class _SummaryItem extends StatelessWidget {
   final MapEntry<String, int> entry;
-  final int total;
+  final int pct;
   final MoodCatalogProvider catalog;
 
-  const _SummaryItem({required this.entry, required this.total, required this.catalog});
+  const _SummaryItem({required this.entry, required this.pct, required this.catalog});
 
   @override
   Widget build(BuildContext context) {
     final mood = catalog.byId(entry.key);
-    final pct = total == 0 ? 0 : (entry.value * 100 / total).round();
 
     return Column(
       children: [
