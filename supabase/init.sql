@@ -50,6 +50,9 @@ create table public.friendships (
   check (user_id <> friend_id)
 );
 
+create index if not exists friendships_friend_id_idx
+  on public.friendships (friend_id);
+
 -- ---------- GENERADOR DE CÓDIGO DE AMIGO ----------
 create or replace function public.generate_friend_code() returns text
 language plpgsql
@@ -66,7 +69,7 @@ begin
   return code;
 end $$;
 
--- ---------- TRIGGER: perfil + código al registrarse ----------
+-- ---------- TRIGGER: perfil + código + catálogo inicial al registrarse ----------
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -91,6 +94,21 @@ begin
       when unique_violation then null; -- código repetido: reintentar
     end;
   end loop;
+
+  -- Catálogo inicial solo si el perfil quedó creado (defensivo; en la
+  -- práctica el username no choca porque el email determinista es único).
+  if exists (select 1 from public.profiles where id = new.id) then
+    insert into public.mood_catalog (id, user_id, label, emoji, color, is_special, sort_order)
+    values
+      (gen_random_uuid(), new.id, 'Feliz',   '😊', 0xFFFFC501::bigint, false, 0),
+      (gen_random_uuid(), new.id, 'Triste',  '😢', 0xFF1D8FFF::bigint, false, 1),
+      (gen_random_uuid(), new.id, 'Ansioso', '😰', 0xFFF3ABFE::bigint, false, 2),
+      (gen_random_uuid(), new.id, 'Enojado', '😡', 0xFFFD6B6B::bigint, false, 3),
+      (gen_random_uuid(), new.id, 'Neutral', '😐', 0xFF57B634::bigint, false, 4),
+      (gen_random_uuid(), new.id, 'Cansado', '😴', 0xFFAA8DF6::bigint, false, 5)
+    on conflict do nothing;
+  end if;
+
   return new;
 end $$;
 
@@ -139,9 +157,11 @@ security definer
 set search_path = public
 as $$
 begin
-  delete from public.friendships
-   where (user_id = auth.uid() and friend_id = remove_friend.friend_id)
-      or (user_id = remove_friend.friend_id and friend_id = auth.uid());
+  -- Calificamos las columnas con el alias `f`: el parámetro `friend_id`
+  -- sombrea la columna `friendships.friend_id` (error 42702 sin esto).
+  delete from public.friendships as f
+   where (f.user_id = auth.uid() and f.friend_id = remove_friend.friend_id)
+      or (f.user_id = remove_friend.friend_id and f.friend_id = auth.uid());
 end $$;
 
 revoke execute on function public.remove_friend(uuid) from public;
@@ -156,44 +176,56 @@ alter table public.mood_entries enable row level security;
 alter table public.friendships  enable row level security;
 
 -- profiles: cualquier autenticado lee (resolver códigos / ver nombres);
--- el dueño actualiza su propia fila.
+-- el dueño actualiza su propia fila. `(select auth.uid())` se evalúa una
+-- sola vez por consulta (initplan) en vez de por fila.
 create policy profiles_select on public.profiles
   for select to authenticated using (true);
 
 create policy profiles_update on public.profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id);
+  for update using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
 
--- mood_catalog: CRUD del dueño + lectura de amigos.
-create policy catalog_owner_all on public.mood_catalog
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy catalog_friend_read on public.mood_catalog
+-- mood_catalog: el dueño escribe; él y sus amigos leen (una sola política
+-- SELECT con OR evita evaluar dos políticas por fila).
+create policy catalog_select on public.mood_catalog
   for select using (
-    exists (
+    (select auth.uid()) = user_id
+    or exists (
       select 1 from public.friendships f
-       where f.user_id = auth.uid() and f.friend_id = mood_catalog.user_id
+       where f.user_id = (select auth.uid()) and f.friend_id = mood_catalog.user_id
     )
   );
+create policy catalog_insert on public.mood_catalog
+  for insert with check ((select auth.uid()) = user_id);
+create policy catalog_update on public.mood_catalog
+  for update using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy catalog_delete on public.mood_catalog
+  for delete using ((select auth.uid()) = user_id);
 
--- mood_entries: CRUD del dueño + lectura de amigos.
-create policy entries_owner_all on public.mood_entries
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy entries_friend_read on public.mood_entries
+-- mood_entries: el dueño escribe; él y sus amigos leen.
+create policy entries_select on public.mood_entries
   for select using (
-    exists (
+    (select auth.uid()) = user_id
+    or exists (
       select 1 from public.friendships f
-       where f.user_id = auth.uid() and f.friend_id = mood_entries.user_id
+       where f.user_id = (select auth.uid()) and f.friend_id = mood_entries.user_id
     )
   );
+create policy entries_insert on public.mood_entries
+  for insert with check ((select auth.uid()) = user_id);
+create policy entries_update on public.mood_entries
+  for update using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy entries_delete on public.mood_entries
+  for delete using ((select auth.uid()) = user_id);
 
 -- friendships: cualquiera de los dos lados lee; solo el dueño borra su lado
 -- (el borrado completo lo hace la RPC remove_friend).
 create policy friendship_read on public.friendships
-  for select using (user_id = auth.uid() or friend_id = auth.uid());
+  for select using ((select auth.uid()) = user_id or (select auth.uid()) = friend_id);
 
 create policy friendship_delete on public.friendships
-  for delete using (user_id = auth.uid());
+  for delete using ((select auth.uid()) = user_id);
 
 -- =====================================================================
 -- DATA API (PostgREST): exposición a la API de datos

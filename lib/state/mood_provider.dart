@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/models/mood_entry.dart';
 import '../data/repositories/mood_repository.dart';
+import '../data/repositories/sync_exception.dart';
 import '../services/date_service.dart';
 import 'debounced_persistence.dart';
 
@@ -30,6 +31,7 @@ class MoodProvider extends ChangeNotifier {
 
   List<MoodEntry> _entries = [];
   bool _loading = true;
+  String? _loadError;
 
   // Índice derivado: clave de día entera -> registros de ese día, en
   // orden cronológico. Se reconstruye al mutar _entries.
@@ -43,6 +45,9 @@ class MoodProvider extends ChangeNotifier {
   );
 
   bool get loading => _loading;
+
+  /// Error de la carga inicial (p. ej. sin conexión). Null si todo bien.
+  String? get loadError => _loadError;
 
   List<MoodEntry> get allEntries => List.unmodifiable(_entries);
 
@@ -104,10 +109,22 @@ class MoodProvider extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    final loaded = await _repository.loadAll();
-    _setEntries(loaded);
+    _loadError = null;
+    try {
+      final loaded = await _repository.loadAll();
+      _setEntries(loaded);
+    } catch (e) {
+      _loadError = e is SyncException ? e.message : 'No se pudieron cargar tus datos.';
+    }
     _loading = false;
     notifyListeners();
+  }
+
+  /// Repite la carga inicial tras un error (pantalla de reintento).
+  Future<void> retryLoad() {
+    _loading = true;
+    notifyListeners();
+    return load();
   }
 
   /// Fuerza la escritura pendiente (si la hay). Lo invoca el ciclo de

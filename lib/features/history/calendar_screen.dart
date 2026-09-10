@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/percentages.dart';
 import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_type.dart';
+import '../../data/mood_view_data.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../home/widgets/mood_sphere_visual.dart';
@@ -29,9 +30,21 @@ const _othersMood = MoodType(
 /// Historial en formato calendario: cada día muestra una burbuja chica
 /// con los colores de los estados registrados ese día (o vacía si no
 /// registró nada). Tocar un día permite ver y agregar registros para esa
-/// fecha, incluso si es un día anterior (spec §6).
+/// fecha, incluso si es un día anterior (spec §6). En modo amigo
+/// ([readOnly]) solo se puede ver.
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  /// Fuente de datos. Si es null, se resuelve desde los providers locales
+  /// (modo "yo"): comportamiento reactivo idéntico al anterior.
+  final MoodViewData? view;
+
+  /// True en la vista de un amigo: sin edición, el detalle del día abre en
+  /// solo lectura.
+  final bool readOnly;
+
+  /// Título de la barra (en modo amigo: "Calendario de @usuario").
+  final String title;
+
+  const CalendarScreen({super.key, this.view, this.readOnly = false, this.title = 'Historial'});
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -58,16 +71,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   /// la suma es exactamente 100. Si quedan emociones fuera del top, se
   /// agrega un ítem "Otros" con su resto (los estados eliminados del
   /// catálogo no se cuentan).
-  List<MonthlySummaryItem> _buildMonthSummary(
-    MoodProvider moodProvider,
-    MoodCatalogProvider catalog,
-  ) {
+  List<MonthlySummaryItem> _buildMonthSummary(MoodViewData view) {
     final counts = <String, int>{};
-    for (final e in moodProvider.allEntries) {
+    for (final e in view.allEntries) {
       if (e.timestamp.year != _visibleMonth.year || e.timestamp.month != _visibleMonth.month) {
         continue;
       }
-      if (catalog.byId(e.moodId).id == '_unknown') continue;
+      if (view.byId(e.moodId).id == '_unknown') continue;
       counts[e.moodId] = (counts[e.moodId] ?? 0) + 1;
     }
 
@@ -79,7 +89,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final items = <MonthlySummaryItem>[];
     for (var i = 0; i < sorted.length && i < MonthlySummary.maxTopMoods; i++) {
       items.add(MonthlySummaryItem(
-        mood: catalog.byId(sorted[i].key),
+        mood: view.byId(sorted[i].key),
         count: sorted[i].value,
         pct: pcts[i].toDouble(),
       ));
@@ -99,8 +109,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return items;
   }
 
+  /// Dónde lleva tocar un día. En el calendario propio, el día actual vuelve
+  /// al inicio (el menú principal del día, el Home, donde se edita hoy); los
+  /// demás días y el calendario del amigo (solo lectura) abren el detalle.
+  void _openDay(MoodViewData view, DateTime date) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    if (isToday && !widget.readOnly) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DayDetailScreen(date: date, view: view, readOnly: widget.readOnly),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final providedView = widget.view;
+    if (providedView != null) {
+      return _buildScaffold(providedView);
+    }
+    return Consumer2<MoodProvider, MoodCatalogProvider>(
+      builder: (context, provider, catalog, _) =>
+          _buildScaffold(LocalMoodViewData(provider: provider, catalog: catalog)),
+    );
+  }
+
+  Widget _buildScaffold(MoodViewData view) {
     final today = DateTime.now();
     final daysInMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
     final firstWeekday = DateTime(_visibleMonth.year, _visibleMonth.month, 1).weekday; // 1=lunes
@@ -112,14 +150,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.bgBottom,
         elevation: 0,
-        title: const Text('Historial', style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
+        title: Text(widget.title, style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
         iconTheme: const IconThemeData(color: AppColors.ink),
       ),
-      body: Consumer2<MoodProvider, MoodCatalogProvider>(
-        builder: (context, moodProvider, catalog, _) {
-          final monthSummary = _buildMonthSummary(moodProvider, catalog);
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final monthSummary = _buildMonthSummary(view);
           return ListView(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 80),
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -178,20 +216,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
                       final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
                       final isFuture = date.isAfter(DateTime(today.year, today.month, today.day));
-                      final entriesAsc = moodProvider.entriesForDateAsc(date);
-                      final colors = entriesAsc.map((e) => catalog.byId(e.moodId).color).toList();
+                      final entriesAsc = view.entriesForDateAsc(date);
+                      final colors = entriesAsc.map((e) => view.byId(e.moodId).color).toList();
                       final auraColors = entriesAsc
-                          .where((e) => catalog.byId(e.moodId).isSpecial)
-                          .map((e) => catalog.byId(e.moodId).color)
+                          .where((e) => view.byId(e.moodId).isSpecial)
+                          .map((e) => view.byId(e.moodId).color)
                           .toList();
                       final hasSpecial = auraColors.isNotEmpty;
 
                       return GestureDetector(
                         onTap: isFuture
                             ? null
-                            : () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => DayDetailScreen(date: date)),
-                                ),
+                            : () => _openDay(view, date),
                         child: Opacity(
                           opacity: isFuture ? 0.35 : 1,
                           child: Column(

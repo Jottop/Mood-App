@@ -41,7 +41,7 @@ class HistoryScreen extends StatelessWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 80),
             itemCount: keys.length,
             itemBuilder: (context, index) {
               final key = keys[index];

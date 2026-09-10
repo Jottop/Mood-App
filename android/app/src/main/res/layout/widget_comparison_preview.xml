@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vista previa estática del widget (android:previewLayout). Muestra el
+     vector del degradado redondeado más las dos burbujas representativas
+     (una sola color cada una, con su degradado y brillo), sin texto: es una
+     imagen de diseño fija, no los datos reales. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_comparison_preview_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_comparison_preview_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_comparison_preview"
+        android:contentDescription="@string/widget_comparison_label" />
+</FrameLayout>

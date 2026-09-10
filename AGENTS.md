@@ -4,14 +4,21 @@ Flutter app (Spanish UI) "Tu día": quick mood logging, per-day list,
 color-mixing bubble, history calendar, and an editable mood catalog.
 **Phase 1 is done** (offline only: SharedPreferences, no backend yet).
 
-**Phase 2 is PLANNED but NOT implemented** — full plan in
-`docs/fase2-plan.md`, ready-to-paste schema in `supabase/init.sql`. Do not
-refactor `CalendarScreen`/`DayDetailScreen`/`DayEntryList` or the
-repositories without honoring that plan. Key Phase 2 decisions:
+**Phase 1 done** (offline: SharedPreferences). **Phase 2 implemented but not
+yet device-verified** — full plan in `docs/fase2-plan.md`, ready-to-paste
+schema in `supabase/init.sql`, source of truth on the remote Supabase
+project. Do not refactor `CalendarScreen`/`DayDetailScreen`/`DayEntryList`
+or the repositories without honoring that plan. Key Phase 2 decisions:
 login mandatory, username+password (Supabase keyed on the deterministic
 email `<username>@tu-dia.local`, email confirmation OFF in Auth settings),
 friends added instantly by friend code, RLS grants friends read-only access
 to `mood_catalog`/`mood_entries`, keys via `--dart-define`.
+Local-first data now flows through the `MoodViewData` abstraction
+(`lib/data/mood_view_data.dart`): screens like `DayDetailScreen`,
+`CalendarScreen`, `DayEntryList`, `MoodSummary` and `FriendProfileScreen`
+take a `view` (+ `readOnly` in editing screens) and never touch
+providers/Supabase directly; `LocalMoodViewData` wraps the local providers
+("yo" mode), `FriendMoodViewData` is the read-only fetched friend data.
 
 ## Commands
 - `flutter analyze` — required gate after every change. There are NO tests
@@ -20,11 +27,12 @@ to `mood_catalog`/`mood_entries`, keys via `--dart-define`.
 - Demo APK: `flutter build apk --release --split-per-abi`, then hand the
   user `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`.
 - Phase 2 (once implemented) must be run/built with
-  `--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...`.
+  `--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=...`.
 
 ## Conventions
-- All UI strings and code comments are in **Spanish** (code identifiers in
-  English). Match this in new code.
+- All UI strings and code comments are in **Spanish**, using **neutral
+  Spanish** (no voseo, no regionalismos; tuteo estándar entendible en todo
+  LATAM + España). Code identifiers in English. Match this in new code.
 - Use `Color.withValues(alpha:)` — never `withOpacity`.
 
 ## Architecture

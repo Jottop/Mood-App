@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Imagen fija de la preview del widget (android:previewImage) para los
+     launchers que la renderizan desde bitmap. Misma composición que el widget
+     real: fondo redondeado con degradado celeste abajo -> lavanda arriba
+     (igual que widget_bg.xml) y dos burbujas, cada una de un solo color con
+     su degradado y brillo (Feliz #FFC501 y Ansioso #F3ABFE). Sin texto: es
+     una imagen de diseño fija, no los datos reales. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="360dp"
+    android:height="220dp"
+    android:viewportWidth="360"
+    android:viewportHeight="220">
+
+    <path android:pathData="M28,0 L332,0 A28,28 0 0 1 360,28 L360,192 A28,28 0 0 1 332,220 L28,220 A28,28 0 0 1 0,192 L0,28 A28,28 0 0 1 28,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="0" android:endY="220"
+                android:startColor="#FFEBDFF7"
+                android:endColor="#FFD9E9FB" />
+        </aapt:attr>
+    </path>
+
+    <!-- Burbuja izquierda (Yo / Feliz #FFC501) -->
+    <path android:pathData="M92.25,92.4 m-79.2,0 a79.2,79.2 0 1,0 158.4,0 a79.2,79.2 0 1,0 -158.4,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="13" android:startY="13"
+                android:endX="13" android:endY="171"
+                android:startColor="#FFFFD761"
+                android:endColor="#FFFFC501" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M66,62 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+
+    <!-- Burbuja derecha (Amigo / Ansioso #F3ABFE) -->
+    <path android:pathData="M267.75,92.4 m-79.2,0 a79.2,79.2 0 1,0 158.4,0 a79.2,79.2 0 1,0 -158.4,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="188" android:startY="13"
+                android:endX="188" android:endY="171"
+                android:startColor="#FFF9D5FE"
+                android:endColor="#FFF3ABFE" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M241,62 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+</vector>

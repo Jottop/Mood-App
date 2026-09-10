@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder de las burbujas que se muestra en el widget ANTES del primer
+     render (y en la vista previa nativa de instalación, que infla el layout
+     con este src por defecto). Transparente: el fondo redondeado con
+     degradado lo aporta el FrameLayout. Reproduce la escena real en 360x220:
+     dos burbujas lado a lado con brillo superior. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="360dp"
+    android:height="220dp"
+    android:viewportWidth="360"
+    android:viewportHeight="220">
+
+    <!-- Burbuja izquierda (yo) -->
+    <path android:pathData="M92.25,92.4 m-79.2,0 a79.2,79.2 0 1,0 158.4,0 a79.2,79.2 0 1,0 -158.4,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="13" android:startY="13"
+                android:endX="13" android:endY="171"
+                android:startColor="#FF8FB8F6"
+                android:endColor="#FF2B6FB3" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M66,62 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+
+    <!-- Burbuja derecha (amigo) -->
+    <path android:pathData="M267.75,92.4 m-79.2,0 a79.2,79.2 0 1,0 158.4,0 a79.2,79.2 0 1,0 -158.4,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="188" android:startY="13"
+                android:endX="188" android:endY="171"
+                android:startColor="#FFF5B8C9"
+                android:endColor="#FFD45678" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M241,62 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+</vector>

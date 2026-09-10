@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/emoji_pack.dart';
 import '../data/models/mood_type.dart';
 import '../data/repositories/mood_catalog_repository.dart';
+import '../data/repositories/sync_exception.dart';
 import 'debounced_persistence.dart';
 
 /// Única fuente de verdad del catálogo de estados de ánimo. Permite
@@ -26,12 +28,16 @@ class MoodCatalogProvider extends ChangeNotifier {
   List<MoodType> _moods = [];
   Map<String, MoodType> _byId = const {};
   bool _loading = true;
+  String? _loadError;
 
   late final DebouncedPersistence _persistence = DebouncedPersistence(
     () => _repository.saveAll(_moods),
   );
 
   bool get loading => _loading;
+
+  /// Error de la carga inicial (p. ej. sin conexión). Null si todo bien.
+  String? get loadError => _loadError;
   List<MoodType> get moods => List.unmodifiable(_moods);
 
   /// Resuelve el estado en O(1). Si el estado fue eliminado del catálogo
@@ -49,10 +55,27 @@ class MoodCatalogProvider extends ChangeNotifier {
   Future<void> flushNow() => _persistence.flushNow();
 
   Future<void> load() async {
-    _moods = await _repository.loadAll();
-    _rebuildIndex();
+    _loadError = null;
+    try {
+      // Al cargar se sanea el emoji de cada estado (en memoria, sin tocar
+      // la nube): los emojis fuera del pack se reencuadran a uno seguro para
+      // que ningún teléfono muestre cajas vacías.
+      _moods = (await _repository.loadAll())
+          .map((m) => m.copyWith(emoji: EmojiPack.sanitize(m.emoji)))
+          .toList();
+      _rebuildIndex();
+    } catch (e) {
+      _loadError = e is SyncException ? e.message : 'No se pudo cargar tu catálogo de estados.';
+    }
     _loading = false;
     notifyListeners();
+  }
+
+  /// Repite la carga inicial tras un error (pantalla de reintento).
+  Future<void> retryLoad() {
+    _loading = true;
+    notifyListeners();
+    return load();
   }
 
   Future<void> addMood({

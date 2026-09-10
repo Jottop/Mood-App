@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
 import '../../services/date_service.dart';
+import '../../state/auth_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../history/calendar_screen.dart';
 import '../moods/manage_moods_screen.dart';
+import '../widget_comparison/widget_comparison_screen.dart';
 import 'widgets/day_entry_list.dart';
 import 'widgets/mood_bubble.dart';
 import 'widgets/mood_picker_grid.dart';
@@ -34,6 +36,19 @@ class HomeScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              // Fallo de red en la carga inicial (Fase 2): pantalla de
+              // error con reintento en lugar de arrancar vacío.
+              final error = provider.loadError ?? catalog.loadError;
+              if (error != null) {
+                return _LoadRetryView(
+                  message: error,
+                  onRetry: () {
+                    context.read<MoodProvider>().retryLoad();
+                    context.read<MoodCatalogProvider>().retryLoad();
+                  },
+                );
+              }
+
               final todaysAsc = provider.todaysEntriesAsc;
               final todaysDesc = provider.todaysEntriesDesc;
               final todaysColors = todaysAsc
@@ -54,7 +69,7 @@ class HomeScreen extends StatelessWidget {
                   : 'Ahora te sientes ${catalog.byId(todaysAsc.last.moodId).label.toLowerCase()}';
 
               return ListView(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
                 children: [
                   const _Header(),
                   const SizedBox(height: 20),
@@ -172,7 +187,83 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
+        // Widget de comparación del escritorio y cierre de sesión. El hub
+        // de amigos ahora vive en la píldora flotante del fondo (Fase 2).
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const WidgetComparisonScreen(),
+                ),
+              ),
+              tooltip: 'Widget de comparación',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
+            ),
+            IconButton(
+              onPressed: () => _logout(context),
+              tooltip: 'Cerrar sesión',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              icon: const Icon(Icons.logout_rounded, size: 22, color: AppColors.inkSoft),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+}
+
+Future<void> _logout(BuildContext context) async {
+  // No queremos perder el último toque: forzamos el guardado pendiente de
+  // ambos providers antes de desmontar la sesión.
+  final mood = context.read<MoodProvider>();
+  final catalog = context.read<MoodCatalogProvider>();
+  final auth = context.read<AuthProvider>();
+  await mood.flushNow();
+  await catalog.flushNow();
+  await auth.signOut();
+}
+
+/// Error de carga inicial con botón de reintento (Fase 2).
+class _LoadRetryView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _LoadRetryView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 42, color: AppColors.inkSoft),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.ink),
+              label: const Text('Reintentar'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.card,
+                side: const BorderSide(color: AppColors.cardLine),
+                foregroundColor: AppColors.ink,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mood_catalog.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
 import 'widgets/custom_color_picker.dart';
+import 'widgets/emoji_picker.dart';
 
 /// Formulario para crear un estado de ánimo nuevo, o editar/eliminar uno
 /// existente si se pasa [existing] (spec §1).
@@ -19,7 +21,9 @@ class MoodEditorScreen extends StatefulWidget {
 
 class _MoodEditorScreenState extends State<MoodEditorScreen> {
   late final TextEditingController _labelController;
-  late final TextEditingController _emojiController;
+  // Emoji elegido del pack curado. Arranca con el emoji existente
+  // saneado (o el neutro del pack si es un estado nuevo).
+  late String _selectedEmoji;
   late Color _selectedColor;
   late bool _isSpecial;
 
@@ -29,7 +33,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
   void initState() {
     super.initState();
     _labelController = TextEditingController(text: widget.existing?.label ?? '');
-    _emojiController = TextEditingController(text: widget.existing?.emoji ?? '');
+    _selectedEmoji = EmojiPack.sanitize(widget.existing?.emoji);
     _selectedColor = widget.existing?.color ?? MoodColorPalette.options.first;
     _isSpecial = widget.existing?.isSpecial ?? false;
   }
@@ -37,11 +41,10 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
   @override
   void dispose() {
     _labelController.dispose();
-    _emojiController.dispose();
     super.dispose();
   }
 
-  bool get _isValid => _labelController.text.trim().isNotEmpty && _emojiController.text.trim().isNotEmpty;
+  bool get _isValid => _labelController.text.trim().isNotEmpty && _selectedEmoji.isNotEmpty;
 
   /// `true` si el color actual no pertenece a la paleta rápida (cuando el
   /// usuario eligió un color personalizado).
@@ -55,10 +58,25 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
     }
   }
 
+  /// Abre el submenú del selector de emojis; al elegir uno, actualiza el
+  /// estado seleccionado.
+  Future<void> _openEmojiPicker() async {
+    final emoji = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.bgBottom,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => EmojiPickerSheet(selected: _selectedEmoji),
+    );
+    if (emoji != null && mounted) {
+      setState(() => _selectedEmoji = emoji);
+    }
+  }
+
   Future<void> _save() async {
     final catalog = context.read<MoodCatalogProvider>();
     final label = _labelController.text.trim();
-    final emoji = _emojiController.text.trim();
+    final emoji = _selectedEmoji;
 
     if (_isEditing) {
       await catalog.updateMood(
@@ -139,12 +157,12 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
         children: [
           // Vista previa en vivo.
           Center(
             child: AnimatedBuilder(
-              animation: Listenable.merge([_labelController, _emojiController]),
+              animation: _labelController,
               builder: (context, _) {
                 // Mismo patrón del selector: tarjeta pálida que contiene
                 // el círculo con el color real y el emoji bien grande.
@@ -167,8 +185,8 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(color: _selectedColor, shape: BoxShape.circle),
                             child: Text(
-                              _emojiController.text.isEmpty ? '🙂' : _emojiController.text,
-                              style: const TextStyle(fontSize: 28),
+                              _selectedEmoji,
+                              style: const TextStyle(fontSize: 28, fontFamilyFallback: kEmojiFontFallback),
                             ),
                           ),
                           if (_isSpecial)
@@ -222,18 +240,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
 
           const Text('Emoji', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
           const SizedBox(height: 8),
-          TextField(
-            controller: _emojiController,
-            maxLength: 2,
-            decoration: InputDecoration(
-              hintText: 'Toca y usa el teclado de emojis de tu teléfono',
-              filled: true,
-              fillColor: AppColors.card,
-              counterText: '',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
+          _EmojiPickerButton(selected: _selectedEmoji, onTap: _openEmojiPicker),
           const SizedBox(height: 20),
 
           const Text('Color', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
@@ -345,6 +352,51 @@ class _CustomColorTile extends StatelessWidget {
           ),
         ),
         child: const Icon(Icons.add_rounded, size: 22, color: AppColors.inkSoft),
+      ),
+    );
+  }
+}
+
+/// Botón del campo "Emoji": muestra el emoji elegido y abre el submenú con
+/// el [EmojiPickerSheet] al tocarlo.
+class _EmojiPickerButton extends StatelessWidget {
+  final String selected;
+  final VoidCallback onTap;
+
+  const _EmojiPickerButton({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+              child: Text(
+                selected,
+                style: const TextStyle(fontSize: 20, fontFamilyFallback: kEmojiFontFallback),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Elegir emoji',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink),
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.inkSoft),
+          ],
+        ),
       ),
     );
   }

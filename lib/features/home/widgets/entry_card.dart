@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/emoji_pack.dart';
 import '../../../core/widgets/special_badge.dart';
 import '../../../data/models/mood_entry.dart';
 import '../../../data/models/mood_type.dart';
@@ -38,7 +39,8 @@ class EntryCard extends StatelessWidget {
                 height: 46,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
-                child: Text(mood.emoji, style: const TextStyle(fontSize: 22)),
+                child: Text(mood.emoji,
+                    style: const TextStyle(fontSize: 22, fontFamilyFallback: kEmojiFontFallback)),
               ),
               if (mood.isSpecial) const Positioned(top: -7, right: -7, child: SpecialBadge()),
             ],

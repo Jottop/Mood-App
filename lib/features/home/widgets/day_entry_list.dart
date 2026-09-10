@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/mood_entry.dart';
 import '../../../data/models/mood_type.dart';
+import '../../../data/mood_view_data.dart';
 import '../../../state/mood_catalog_provider.dart';
 import '../../../state/mood_provider.dart';
 import 'entry_card.dart';
@@ -33,11 +34,21 @@ class DayEntryList extends StatelessWidget {
   /// detalle del día). Se usa para reordenar dentro de ese día.
   final DateTime date;
 
+  /// Fuente de datos (modo amigo = snapshot de solo lectura). Si es null,
+  /// se resuelve desde los providers locales (mismo comportamiento previo).
+  final MoodViewData? view;
+
+  /// True en la vista de un amigo: sin botón de "x", sin reordenar y sin
+  /// aviso de deshacer.
+  final bool readOnly;
+
   const DayEntryList({
     super.key,
     required this.entriesDesc,
     required this.date,
     this.emptyMessage = 'Todavía no hay registros para este día.',
+    this.view,
+    this.readOnly = false,
   });
 
   /// Borra el registro de inmediato y ofrece deshacer con una barra de
@@ -104,7 +115,29 @@ class DayEntryList extends StatelessWidget {
       );
     }
 
-    final catalog = context.watch<MoodCatalogProvider>();
+    final MoodViewData data = view ??
+        LocalMoodViewData(
+          provider: context.watch<MoodProvider>(),
+          catalog: context.watch<MoodCatalogProvider>(),
+        );
+
+    // Modo amigo (solo lectura): lista plana sin "x", sin agarre de
+    // reordenado y sin animación de borrado.
+    if (readOnly) {
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: entriesDesc.length,
+        itemBuilder: (context, index) {
+          final entry = entriesDesc[index];
+          return Padding(
+            key: ValueKey(entry.id),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: EntryCard(entry: entry, mood: data.byId(entry.moodId)),
+          );
+        },
+      );
+    }
 
     return ReorderableListView.builder(
       shrinkWrap: true,
@@ -134,7 +167,7 @@ class DayEntryList extends StatelessWidget {
             index: index,
             child: _AnimatedEntryCard(
               entry: entry,
-              mood: catalog.byId(entry.moodId),
+              mood: data.byId(entry.moodId),
               onDeleted: () => _deleteWithUndo(context, entry),
             ),
           ),

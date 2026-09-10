@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -122,7 +123,8 @@ class _MoodRow extends StatelessWidget {
                 height: 50,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-                child: Text(mood.emoji, style: const TextStyle(fontSize: 24)),
+                child: Text(mood.emoji,
+                  style: const TextStyle(fontSize: 24, fontFamilyFallback: kEmojiFontFallback)),
               ),
               const SizedBox(width: 14),
               Expanded(

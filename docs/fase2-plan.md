@@ -29,9 +29,10 @@ Darle funcionalidades online a la app "Tu día":
 
 - Dependencia nueva: `supabase_flutter: ^2.17.2`.
 - `lib/core/config/env.dart`: `String.fromEnvironment('SUPABASE_URL')` y
-  `String.fromEnvironment('SUPABASE_ANON_KEY')`.
+  `String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY')` (nueva API: usar
+  `publishableKey`, no la deprecated `anonKey`).
 - `main.dart`: `WidgetsFlutterBinding.ensureInitialized()` +
-  `await Supabase.initialize(url: ..., anonKey: ...)` antes de `runApp`.
+  `await Supabase.initialize(url: ..., publishableKey: ...)` antes de `runApp`.
 - `AndroidManifest.xml` (main): agregar
   `<uses-permission android:name="android.permission.INTERNET"/>`
   (en debug Flutter la agrega solo; en release hay que declararla).
@@ -161,7 +162,7 @@ del amigo se introduce una **interfaz de datos de solo lectura**:
 ```bash
 flutter run \
   --dart-define=SUPABASE_URL=https://TU-PROYECTO.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=TU_ANON_KEY
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=TU_PUBLISHABLE_KEY
 ```
 
 Idem para `flutter build apk --release --split-per-abi`.

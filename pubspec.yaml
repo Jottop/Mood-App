@@ -13,6 +13,9 @@ dependencies:
   shared_preferences: ^2.2.3
   uuid: ^4.4.0
   cupertino_icons: ^1.0.6
+  supabase_flutter: ^2.17.2
+  characters: ^1.3.0
+  home_widget: ^0.9.4
 
 dev_dependencies:
   flutter_test:
@@ -21,3 +24,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: NotoEmoji
+      fonts:
+        - asset: assets/fonts/NotoEmoji-Regular.ttf

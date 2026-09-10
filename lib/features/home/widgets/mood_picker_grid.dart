@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/emoji_pack.dart';
 import '../../../core/widgets/special_badge.dart';
 import '../../../data/models/mood_type.dart';
 
@@ -155,7 +156,8 @@ class _MoodChipState extends State<_MoodChip> with SingleTickerProviderStateMixi
                     height: 36,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-                    child: Text(widget.emoji, style: const TextStyle(fontSize: 19)),
+                    child: Text(widget.emoji,
+                        style: const TextStyle(fontSize: 19, fontFamilyFallback: kEmojiFontFallback)),
                   ),
                   // Insignia con la cantidad de veces que esta emoción ya
                   // está registrada en el día. Va sobre el círculo, dentro

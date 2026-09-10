@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vista previa estática del launcher: imagen de diseño fija (previewLayout
+     y previewImage apuntan al mismo vector) con el degradado y dos burbujas
+     de un solo color, sin texto. Es una foto fija por diseño — el widget del
+     escritorio sí muestra los datos en vivo. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="140dp"
+    android:minHeight="52dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:initialLayout="@layout/widget_comparison"
+    android:previewLayout="@layout/widget_comparison_preview"
+    android:previewImage="@drawable/widget_comparison_preview"
+    android:description="@string/widget_comparison_description" />
