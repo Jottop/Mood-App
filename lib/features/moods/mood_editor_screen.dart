@@ -157,7 +157,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 130),
         children: [
           // Vista previa en vivo.
           Center(

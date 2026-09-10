@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/profile.dart';
+import '../features/widget_comparison/widget_cache_store.dart';
 import '../services/network_timeout.dart';
 
 /// Estado de autenticación de la app.
@@ -28,6 +31,10 @@ class AuthProvider extends ChangeNotifier {
     final hasSession = _auth.currentSession != null;
     _status = hasSession ? AuthStatus.resolving : AuthStatus.signedOut;
     if (hasSession) {
+      // Copia la sesión a prefs planas para las tareas de fondo del widget
+      // (WorkManager): en ese aislado no hay `FlutterSecureStorage`, y el
+      // refresh_token permite renovar el access token sin credenciales.
+      unawaited(_persistSessionSnapshot());
       unawaited(_loadProfile()
           .then((_) => _setStatus(AuthStatus.signedIn))
           .catchError((Object _) {
@@ -57,6 +64,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _onAuthStateChange(AuthState state) async {
     switch (state.event) {
       case AuthChangeEvent.signedIn:
+        unawaited(_persistSessionSnapshot());
         try {
           await _loadProfile();
         } catch (_) {
@@ -65,12 +73,39 @@ class AuthProvider extends ChangeNotifier {
           _profile = null;
         }
         _setStatus(AuthStatus.signedIn);
+      case AuthChangeEvent.tokenRefreshed:
+        // Supabase renovó el access token: refrescamos el snapshot de fondo.
+        unawaited(_persistSessionSnapshot());
       case AuthChangeEvent.signedOut:
+        unawaited(_clearSessionSnapshot());
         _profile = null;
         _setStatus(AuthStatus.signedOut);
       default:
         break;
     }
+  }
+
+  /// Guarda el snapshot de sesión (access token + refresh token) en prefs
+  /// planas para las tareas de fondo del widget. Nota: queda en el propio
+  /// dispositivo, solo legible por la app.
+  Future<void> _persistSessionSnapshot() async {
+    final session = _auth.currentSession;
+    if (session == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      kAuthSessionSnapshotKey,
+      jsonEncode({
+        'accessToken': session.accessToken,
+        'refreshToken': session.refreshToken,
+        // `expiresAt` es un timestamp Unix (segundos), no un DateTime.
+        'expiresAt': session.expiresAt,
+      }),
+    );
+  }
+
+  Future<void> _clearSessionSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kAuthSessionSnapshotKey);
   }
 
   void _setStatus(AuthStatus value) {
@@ -160,7 +195,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Cierra la sesión. La app vuelve al login vía `onAuthStateChange`.
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await _auth.signOut();
+    // el evento signedOut también lo limpia, pero por si el stream no
+    // llegara (cierre forzado), removemos el snapshot acá.
+    unawaited(_clearSessionSnapshot());
+  }
 
   static const _networkError =
       'No se pudo conectar al servidor. Verifica tu conexión e inténtalo de nuevo.';

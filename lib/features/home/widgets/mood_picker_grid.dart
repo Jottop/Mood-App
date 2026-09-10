@@ -4,9 +4,9 @@ import '../../../core/emoji_pack.dart';
 import '../../../core/widgets/special_badge.dart';
 import '../../../data/models/mood_type.dart';
 
-/// Selector rápido en grilla: 4 columnas, máximo 2 filas visibles. Si el
-/// catálogo tiene más estados de los que caben, se puede hacer scroll
-/// vertical dentro de la grilla para ver el resto.
+/// Selector rápido en grilla: 4 columnas y todas las emociones del
+/// catálogo siempre a la vista (sin scroll interno). La grilla crece con
+/// el contenido y el scroll lo hace la página que la contiene.
 ///
 /// Tocar un estado lo registra al instante, sin pasos intermedios (spec
 /// §5: "el proceso debe ser rápido y requerir la menor cantidad de pasos
@@ -21,7 +21,6 @@ class MoodPickerGrid extends StatelessWidget {
   final Map<String, int> moodsCount;
 
   static const _crossAxisCount = 4;
-  static const _visibleRows = 2;
   static const _spacing = 8.0;
   // width / height de cada celda. 1.0 = celda cuadrada, suficiente para
   // el círculo grande con el color real.
@@ -40,17 +39,20 @@ class MoodPickerGrid extends StatelessWidget {
       builder: (context, constraints) {
         // El alto real de cada celda depende del ancho disponible (el
         // GridView lo calcula a partir de childAspectRatio), así que lo
-        // medimos acá para que el contenedor tenga exactamente el alto
-        // de 2 filas — nunca más, nunca menos.
+        // medimos acá para que el contenedor tenga exactamente el alto de
+        // las filas que hagan falta para mostrar TODAS las emociones.
         final totalWidth = constraints.maxWidth;
         final cellWidth = (totalWidth - _spacing * (_crossAxisCount - 1)) / _crossAxisCount;
         final cellHeight = cellWidth / _aspectRatio;
-        final visibleHeight = cellHeight * _visibleRows + _spacing * (_visibleRows - 1);
+        final rows = (moods.length / _crossAxisCount).ceil();
+        final totalHeight = rows > 0 ? cellHeight * rows + _spacing * (rows - 1) : 0.0;
 
         return SizedBox(
-          height: visibleHeight,
+          height: totalHeight,
           child: GridView.builder(
-            physics: const ClampingScrollPhysics(),
+            // Sin scroll propio: la página (ListView) se encarga de hacer
+            // scroll y muestra todas las emociones siempre.
+            physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _crossAxisCount,
               mainAxisSpacing: _spacing,

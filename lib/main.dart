@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'core/config/env.dart';
 import 'core/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import 'data/repositories/supabase_mood_repository.dart';
 import 'features/auth/login_screen.dart';
 import 'features/friends/friends_hub.dart';
 import 'features/home/home_screen.dart';
+import 'features/widget_comparison/widget_background_sync.dart';
 import 'features/widget_comparison/widget_comparison_service.dart';
 import 'services/network_timeout.dart';
 import 'state/auth_provider.dart';
@@ -28,6 +30,14 @@ Future<void> main() async {
         url: Env.supabaseUrl,
         publishableKey: Env.supabasePublishableKey,
       ).timeout(kSupabaseRequestTimeout);
+      // Tarea periódica que refresca el widget con la app cerrada. El
+      // callback corre en un aislado Flutter de fondo (WorkManager).
+      try {
+        await Workmanager().initialize(widgetBackgroundCallbackDispatcher);
+      } catch (_) {
+        // Sin el fondo no pasa nada catastrófico: el widget sigue
+        // actualizándose mientras la app está abierta.
+      }
     } on TimeoutException {
       // La inicialización no debe colgar el arranque con red inestable:
       // mostramos un reintento claro en vez de quedarnos en el splash para
@@ -259,12 +269,24 @@ class _LifecycleHandlerState extends State<_LifecycleHandler> with WidgetsBindin
       moodProvider: context.read<MoodProvider>(),
       catalogProvider: context.read<MoodCatalogProvider>(),
     )..init();
+    // Con sesión activa programamos el refresco de fondo del widget. WorkManager
+    // exige un mínimo de 15 minutos y puede diferirlo más según Doze.
+    unawaited(Workmanager().registerPeriodicTask(
+      kWidgetSyncPeriodicTask,
+      kWidgetSyncTaskName,
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(networkType: NetworkType.connected),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    ));
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _widgetService.dispose();
+    // Al cerrar la sesión (este handler se desmonta) ya no hay nada que
+    // refrescar en segundo plano.
+    unawaited(Workmanager().cancelByUniqueName(kWidgetSyncPeriodicTask));
     super.dispose();
   }
 

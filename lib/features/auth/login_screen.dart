@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isRegister = false;
   bool _submitting = false;
+  bool _obscurePassword = true;
   String? _error;
 
   @override
@@ -142,12 +143,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: _passwordController,
                             enabled: !_submitting,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             onSubmitted: (_) => _submit(),
                             textInputAction: _isRegister ? TextInputAction.done : TextInputAction.go,
                             decoration: _decoration(
                               label: 'Contraseña',
                               icon: Icons.lock_outline_rounded,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  size: 20,
+                                  color: AppColors.inkSoft,
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                tooltip: _obscurePassword ? 'Mostrar contraseña' : 'Ocultar contraseña',
+                              ),
                             ),
                           ),
                           if (_error != null) ...[
@@ -201,10 +211,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  InputDecoration _decoration({required String label, required IconData icon}) {
+  InputDecoration _decoration({required String label, required IconData icon, Widget? suffixIcon}) {
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, size: 20, color: AppColors.inkSoft),
+      suffixIcon: suffixIcon,
       filled: true,
       fillColor: AppColors.bgTop,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

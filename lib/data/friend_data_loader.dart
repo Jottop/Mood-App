@@ -11,18 +11,25 @@ import 'mood_view_data.dart';
 /// alimenta su perfil y el calendario read-only. Es la misma consulta que
 /// hacía `FriendProfileScreen` internamente; ahora el widget de comparación
 /// también la usa para conocer la burbuja del amigo seleccionado.
-Future<FriendMoodViewData> fetchFriendMoodViewData(String friendId) async {
-  final client = Supabase.instance.client;
+///
+/// [client] permite inyectar un cliente distinto (p. ej. uno construido en
+/// una tarea de fondo sin pasar por `Supabase.instance`); por defecto usa el
+/// cliente global de la app.
+Future<FriendMoodViewData> fetchFriendMoodViewData(
+  String friendId, {
+  SupabaseClient? client,
+}) async {
+  final supabaseClient = client ?? Supabase.instance.client;
 
   // Ambas consultas son independientes: se lanzan en paralelo.
   // Se trae el historial completo (no solo hoy) porque el mismo snapshot
   // alimenta el calendario read-only al abrirlo.
-  final entriesFuture = client
+  final entriesFuture = supabaseClient
       .from('mood_entries')
       .select('id, mood_id, timestamp, logged_at')
       .eq('user_id', friendId)
       .order('timestamp');
-  final catalogFuture = client
+  final catalogFuture = supabaseClient
       .from('mood_catalog')
       .select()
       .eq('user_id', friendId)

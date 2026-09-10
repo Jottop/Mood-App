@@ -46,7 +46,7 @@ class ManageMoodsScreen extends StatelessWidget {
               ),
               Expanded(
                 child: ReorderableListView.builder(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 170),
                   buildDefaultDragHandles: false,
                   proxyDecorator: (child, index, animation) => AnimatedBuilder(
                     animation: animation,
@@ -82,13 +82,19 @@ class ManageMoodsScreen extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.ink,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Agregar estado'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const MoodEditorScreen()),
+      // La píldora del hub de amigos flota centrada sobre el borde inferior
+      // de TODAS las pantallas, así que el botón va elevado para nunca
+      // quedar tapado ni rozarla.
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 96),
+        child: FloatingActionButton.extended(
+          backgroundColor: AppColors.ink,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Agregar estado'),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MoodEditorScreen()),
+          ),
         ),
       ),
     );
