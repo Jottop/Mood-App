@@ -65,6 +65,17 @@ class DayEntryList extends StatelessWidget {
         SnackBar(
           behavior: SnackBarBehavior.floating,
           duration: _undoDuration,
+          // La píldora del hub de amigos flota sobre el borde inferior en un
+          // overlay por ENCIMA del Navigator (fuera del alcance del
+          // ScaffoldMessenger), así que el aviso se eleva para no quedar
+          // detrás de ella: 74 = SafeArea mínimo de la píldora (10) + altura
+          // de la píldora (52) + separación (12).
+          margin: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            MediaQuery.viewPaddingOf(context).bottom + 74,
+          ),
           // Barra clara (no opaca) para que no tape la lista de debajo.
           backgroundColor: AppColors.card,
           elevation: 6,

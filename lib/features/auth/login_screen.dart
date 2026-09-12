@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               icon: Icons.lock_outline_rounded,
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                                   size: 20,
                                   color: AppColors.inkSoft,
                                 ),

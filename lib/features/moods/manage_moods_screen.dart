@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
 import 'mood_editor_screen.dart';
@@ -146,7 +147,7 @@ class _MoodRow extends StatelessWidget {
                     ),
                     if (mood.isSpecial) ...[
                       const SizedBox(width: 6),
-                      const Icon(Icons.radar, size: 15, color: AppColors.inkSoft),
+                      const SpecialBadge(),
                     ],
                   ],
                 ),

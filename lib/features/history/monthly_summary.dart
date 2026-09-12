@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_type.dart';
 import '../home/widgets/mood_sphere_visual.dart';
 
@@ -130,6 +131,12 @@ class MonthlySummary extends StatelessWidget {
                   item.mood.label,
                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.ink),
                 ),
+                // Las especiales se marcan con la chincheta inline, igual que
+                // en el resto de la app, para identificarlas de un vistazo.
+                if (item.mood.isSpecial) ...[
+                  const SizedBox(width: 4),
+                  const SpecialBadge(size: 11),
+                ],
               ],
             ),
         ],
@@ -175,6 +182,10 @@ class _Bubble extends StatelessWidget {
                   size: d,
                   glassEffects: true,
                 ),
+                // Chincheta de especial en la burbuja: queda dentro (sin
+                // desbordar la grilla) y marca la emoción destacada.
+                if (item.mood.isSpecial)
+                  const Positioned(top: 4, right: 4, child: SpecialBadge(size: 11)),
                 Text(
                   '${item.pct.round()}%',
                   textAlign: TextAlign.center,
