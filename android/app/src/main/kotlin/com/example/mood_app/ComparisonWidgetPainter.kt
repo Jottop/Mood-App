@@ -3,7 +3,6 @@ package com.example.mood_app
 import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
@@ -259,20 +258,7 @@ object ComparisonWidgetPainter {
         opacity = 0.65f, blur = true,
     )
 
-    // Borde translúcido que refuerza el contorno.
-    val r = d / 2f
-    val stroke = d * 0.018f
-    canvas.drawCircle(d / 2f, d / 2f, r - stroke / 2f, paint {
-      style = Paint.Style.STROKE
-      strokeWidth = stroke
-      shader = LinearGradient(
-          0f, 0f, 0f, d,
-          intArrayOf(white(0.55f), white(0.08f)),
-          null,
-          Shader.TileMode.CLAMP,
-      )
-    })
-  }
+    }
 
   private fun drawGlassBlob(canvas: Canvas, cx: Float, cy: Float, radius: Float, colors: IntArray) {
     canvas.drawCircle(cx, cy, radius, paint {
@@ -335,7 +321,9 @@ object ComparisonWidgetPainter {
     canvas.drawPath(path, p)
   }
 
-  /** Anillos finos del widget por fuera de la burbuja (primeras 2 únicas). */
+  /** Anillos finos del widget por fuera de la burbuja (primeras 2 únicas),
+   *  CONTIGUOS a la esfera: el primer anillo toca la burbuja y los anillos
+   *  se tocan entre sí (el paso entre centros es el grosor del trazo). */
   private fun paintSceneAura(canvas: Canvas, d: Float, aura: IntArray) {
     val layers = linkedSetOf<Int>()
     for (c in aura) {
@@ -345,8 +333,10 @@ object ComparisonWidgetPainter {
     if (layers.isEmpty()) return
 
     val baseR = d / 2f
-    val step = d * 0.03f
-    val stroke = d * 0.015f
+    // Contiguo: el paso entre centros equivale al grosor del trazo, así el
+    // primer anillo toca la esfera y los anillos se tocan entre sí.
+    val step = d * 0.02f
+    val stroke = d * 0.02f
     val shown = min(layers.size, 2)
     for ((i, auraColor) in layers.take(shown).withIndex()) {
       canvas.drawCircle(d / 2f, d / 2f, baseR + step * (i + 0.5f), paint {
