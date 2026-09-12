@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/profile.dart';
-import '../features/widget_comparison/widget_cache_store.dart';
+import '../data/session_snapshot.dart';
 import '../services/network_timeout.dart';
 
 /// Estado de autenticación de la app.
@@ -31,21 +29,7 @@ class AuthProvider extends ChangeNotifier {
     final hasSession = _auth.currentSession != null;
     _status = hasSession ? AuthStatus.resolving : AuthStatus.signedOut;
     if (hasSession) {
-      // Copia la sesión a prefs planas para las tareas de fondo del widget
-      // (WorkManager): en ese aislado no hay `FlutterSecureStorage`, y el
-      // refresh_token permite renovar el access token sin credenciales.
-      unawaited(_persistSessionSnapshot());
-      unawaited(_loadProfile()
-          .then((_) => _setStatus(AuthStatus.signedIn))
-          .catchError((Object _) {
-        // Sin red (o timeout) no podemos validar la sesión persistida con el
-        // servidor, pero SÍ hay una sesión guardada localmente: no
-        // deslogueamos al usuario. Entramos igual y los providers de datos
-        // muestran su propio error con reintento. La validación real ocurre
-        // en el siguiente arranque o cuando los datos se retran con éxito.
-        _profile = null;
-        _setStatus(AuthStatus.signedIn);
-      }));
+      unawaited(_startSignedIn());
     }
   }
 
@@ -85,28 +69,56 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Arranque con sesión: primero se recupera el token más reciente del
+  /// snapshot (la tarea de fondo pudo rotarlo mientras la app estaba
+  /// cerrada; refrescar con uno ya consumido desloguearía), se refresca el
+  /// snapshot y se carga el perfil.
+  Future<void> _startSignedIn() async {
+    await _restoreNewestSession();
+    await _persistSessionSnapshot();
+    try {
+      await _loadProfile();
+    } catch (_) {
+      // Sin red (o timeout) no podemos validar la sesión persistida con el
+      // servidor, pero SÍ hay una sesión guardada localmente: no
+      // deslogueamos al usuario. Entramos igual y los providers de datos
+      // muestran su propio error con reintento. La validación real ocurre
+      // en el siguiente arranque o cuando los datos se retran con éxito.
+      _profile = null;
+    }
+    _setStatus(AuthStatus.signedIn);
+  }
+
+  /// Si el snapshot guarda una sesión MÁS nueva que la de memoria (la tarea
+  /// de fondo la rotó con la app cerrada), se adopta para no refrescar con
+  /// un token ya consumido. Error de red o token inválido: se sigue con la
+  /// sesión en memoria.
+  Future<void> _restoreNewestSession() async {
+    final snapshot = await readSessionSnapshot();
+    final refreshToken = snapshot?['refreshToken'] as String?;
+    final snapshotExpiresAt = snapshot?['expiresAt'] as int?;
+    if (refreshToken == null || refreshToken.isEmpty) return;
+    final current = _auth.currentSession;
+    final currentExpiresAt = current?.expiresAt;
+    if (currentExpiresAt != null &&
+        snapshotExpiresAt != null &&
+        snapshotExpiresAt <= currentExpiresAt) {
+      return;
+    }
+    try {
+      await _auth.setSession(refreshToken);
+    } catch (_) {
+      // Sin red o token inválido: se sigue con la sesión en memoria.
+    }
+  }
+
   /// Guarda el snapshot de sesión (access token + refresh token) en prefs
   /// planas para las tareas de fondo del widget. Nota: queda en el propio
   /// dispositivo, solo legible por la app.
-  Future<void> _persistSessionSnapshot() async {
-    final session = _auth.currentSession;
-    if (session == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      kAuthSessionSnapshotKey,
-      jsonEncode({
-        'accessToken': session.accessToken,
-        'refreshToken': session.refreshToken,
-        // `expiresAt` es un timestamp Unix (segundos), no un DateTime.
-        'expiresAt': session.expiresAt,
-      }),
-    );
-  }
+  Future<void> _persistSessionSnapshot() =>
+      persistSessionSnapshot(_auth.currentSession);
 
-  Future<void> _clearSessionSnapshot() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(kAuthSessionSnapshotKey);
-  }
+  Future<void> _clearSessionSnapshot() => clearSessionSnapshot();
 
   void _setStatus(AuthStatus value) {
     if (_status == value) return;

@@ -21,6 +21,11 @@ const kWidgetPrefFriendName = 'widget_comparison_friend_name';
 const kWidgetPrefFriendEntries = 'widget_comparison_friend_entries';
 const kWidgetPrefFriendCatalog = 'widget_comparison_friend_catalog';
 
+// Heartbeat de la app en primer plano (epoch millis): la tarea de fondo lo
+// lee para NO consumir el refresh token compartido mientras la app está
+// activa (ahí el widget ya se mantiene al día desde Flutter).
+const kWidgetPrefAppActiveAt = 'widget_app_active_at';
+
 // Cache de la escena consumido por el pintor nativo (JSON).
 const kWidgetDateKey = 'widget_date_key';
 const kWidgetMineJson = 'widget_mine_json';

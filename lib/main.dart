@@ -275,15 +275,12 @@ class _LifecycleHandlerState extends State<_LifecycleHandler> with WidgetsBindin
       moodProvider: context.read<MoodProvider>(),
       catalogProvider: context.read<MoodCatalogProvider>(),
     )..init();
-    // Con sesión activa programamos el refresco de fondo del widget. WorkManager
-    // exige un mínimo de 15 minutos y puede diferirlo más según Doze.
-    unawaited(Workmanager().registerPeriodicTask(
-      kWidgetSyncPeriodicTask,
-      kWidgetSyncTaskName,
-      frequency: const Duration(minutes: 15),
-      constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-    ));
+    // Con sesión activa plantamos el primer eslabón de la cadena que refresca
+    // el widget de fondo. WorkManager limita a 15 minutos solo los trabajos
+    // periódicos: la cadena usa one-off re-agendados cada [kWidgetSyncCadence]
+    // (ver `runWidgetBackgroundSync`). Doze puede estirar la espera real en
+    // reposo; sin la cadena, es lo que hay.
+    unawaited(scheduleNextWidgetSync());
   }
 
   @override
