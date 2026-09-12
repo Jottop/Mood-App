@@ -21,6 +21,11 @@ class SupabaseMoodCatalogRepository implements MoodCatalogRepository {
 
   SupabaseClient get _client => Supabase.instance.client;
 
+  /// Último conjunto de ids que este dispositivo conoce (ver
+  /// `SupabaseMoodRepository._knownIds`): el borrado va por DIFF para no
+  /// eliminar filas que otro dispositivo creó y este jamás descargó.
+  final Set<String> _knownIds = {};
+
   String _requireUserId() {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
@@ -40,7 +45,11 @@ class SupabaseMoodCatalogRepository implements MoodCatalogRepository {
             .eq('user_id', uid)
             .order('sort_order'),
       );
-      return rows.map(_fromTable).toList();
+      final moods = rows.map(_fromTable).toList();
+      _knownIds
+        ..clear()
+        ..addAll([for (final m in moods) m.id]);
+      return moods;
     } on SyncException {
       rethrow;
     } catch (_) {
@@ -60,21 +69,33 @@ class SupabaseMoodCatalogRepository implements MoodCatalogRepository {
       }
 
       // El orden del usuario (drag & drop del gestor) se refleja en
-      // `sort_order`; reemplazo total en 2 consultas: el delete se lleva los
-      // estados eliminados sin select intermedio de ids.
-      final currentIds = [for (final m in moods) m.id];
-      if (currentIds.isEmpty) {
-        await _client.from(table).delete().eq('user_id', uid);
-      } else {
-        await _client
-            .from(table)
-            .delete()
-            .eq('user_id', uid)
-            .not('id', 'in', currentIds);
+      // `sort_order`; los estados eliminados se borran por DIFF de ids (solo
+      // los que este dispositivo conoce y ya no están en memoria).
+      final currentIds = {for (final m in moods) m.id};
+      final removedIds = _knownIds.difference(currentIds);
+      if (removedIds.isNotEmpty) {
+        for (final batch in _chunks(removedIds.toList(), 500)) {
+          await _client
+              .from(table)
+              .delete()
+              .eq('user_id', uid)
+              .inFilter('id', batch);
+        }
       }
+      _knownIds
+        ..clear()
+        ..addAll(currentIds);
     } catch (_) {
       // Offline: se reintenta en el próximo guardado con el set completo.
     }
+  }
+
+  static List<List<String>> _chunks(List<String> ids, int size) {
+    final out = <List<String>>[];
+    for (var i = 0; i < ids.length; i += size) {
+      out.add(ids.sublist(i, i + size > ids.length ? ids.length : i + size));
+    }
+    return out;
   }
 
   Map<String, dynamic> _toTable(MoodType m, String uid, int sortOrder) => {

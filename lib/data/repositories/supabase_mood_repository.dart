@@ -25,6 +25,14 @@ class SupabaseMoodRepository implements MoodRepository {
 
   SupabaseClient get _client => Supabase.instance.client;
 
+  /// Último conjunto de ids que este dispositivo conoce (último loadAll o
+  /// saveAll exitoso). Permite borrar por DIFF: solo se eliminan filas que
+  /// este cliente sabe que existían y ya no están en memoria. Si otro
+  /// dispositivo agregó filas (o este arrancó offline), no se tocan: el
+  /// viejo `delete ... not in (ids)` borraba también lo que el dispositivo
+  /// jamás había visto.
+  final Set<String> _knownIds = {};
+
   String _requireUserId() {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
@@ -44,7 +52,11 @@ class SupabaseMoodRepository implements MoodRepository {
             .eq('user_id', uid)
             .order('timestamp'),
       );
-      return rows.map(_fromTable).toList();
+      final entries = rows.map(_fromTable).toList();
+      _knownIds
+        ..clear()
+        ..addAll([for (final e in entries) e.id]);
+      return entries;
     } catch (_) {
       throw const SyncException(
         'No se pudieron cargar tus registros. Revisa la conexión y vuelve a intentarlo.',
@@ -61,24 +73,38 @@ class SupabaseMoodRepository implements MoodRepository {
         await _client.from(table).upsert(payload, onConflict: 'id');
       }
 
-      // Reemplazo total en 2 consultas: el upsert escribe el set actual y
-      // este delete se lleva las filas que ya no están en memoria (borrado,
-      // deshacer pendiente o reinicio de día). Sin el select intermedio de
-      // ids.
-      final currentIds = [for (final e in entries) e.id];
-      if (currentIds.isEmpty) {
-        await _client.from(table).delete().eq('user_id', uid);
-      } else {
-        await _client
-            .from(table)
-            .delete()
-            .eq('user_id', uid)
-            .not('id', 'in', currentIds);
+      // Borrado por DIFF: solo las filas que este cliente conoce y que ya no
+      // están en memoria (eliminadas localmente). Un delete `not in (ids)`
+      // con todos los ids actuales borraba también filas creadas por OTRO
+      // dispositivo que este nunca descargó (o al arrancar offline).
+      final currentIds = {for (final e in entries) e.id};
+      final removedIds = _knownIds.difference(currentIds);
+      if (removedIds.isNotEmpty) {
+        for (final batch in _chunks(removedIds.toList(), 500)) {
+          await _client
+              .from(table)
+              .delete()
+              .eq('user_id', uid)
+              .inFilter('id', batch);
+        }
       }
+      _knownIds
+        ..clear()
+        ..addAll(currentIds);
     } catch (_) {
       // Offline: se reintenta en el próximo schedule/flush con el set
       // completo en memoria.
     }
+  }
+
+  /// Divide una lista de ids en tandas de tamaño [size] para no construir
+  /// listas `in (...)` excesivamente largas en PostgREST.
+  static List<List<String>> _chunks(List<String> ids, int size) {
+    final out = <List<String>>[];
+    for (var i = 0; i < ids.length; i += size) {
+      out.add(ids.sublist(i, i + size > ids.length ? ids.length : i + size));
+    }
+    return out;
   }
 
   Map<String, dynamic> _toTable(MoodEntry e, String uid) => {

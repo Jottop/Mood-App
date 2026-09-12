@@ -50,8 +50,8 @@ create table public.friendships (
   check (user_id <> friend_id)
 );
 
-create index if not exists friendships_friend_id_idx
-  on public.friendships (friend_id);
+-- Sin índice adicional sobre friend_id: la tabla es diminuta y el PK
+-- (user_id, friend_id) ya cubre la lectura "mis amigos" (lado user_id).
 
 -- ---------- GENERADOR DE CÓDIGO DE AMIGO ----------
 create or replace function public.generate_friend_code() returns text
@@ -130,9 +130,12 @@ as $$
 declare
   f uuid;
 begin
+  -- Los códigos se guardan en mayúsculas y el cliente ya los normaliza
+  -- (trim + to_upper + alfanuméricos). Comparar la columna directamente
+  -- (no upper(col)) permite que use el índice único profiles_friend_code_key.
   select id into f
     from public.profiles
-   where upper(friend_code) = upper(trim(code_input))
+   where friend_code = upper(trim(code_input))
      and id <> auth.uid();
   if f is null then
     return false;
@@ -175,11 +178,18 @@ alter table public.mood_catalog enable row level security;
 alter table public.mood_entries enable row level security;
 alter table public.friendships  enable row level security;
 
--- profiles: cualquier autenticado lee (resolver códigos / ver nombres);
--- el dueño actualiza su propia fila. `(select auth.uid())` se evalúa una
--- sola vez por consulta (initplan) en vez de por fila.
+-- profiles: el dueño y sus amigos leen (username + código); los códigos de
+-- gente ajena no se resuelven con la tabla sino con el RPC add_friend. El
+-- dueño actualiza su propia fila. `(select auth.uid())` se evalúa una sola
+-- vez por consulta (initplan) en vez de por fila.
 create policy profiles_select on public.profiles
-  for select to authenticated using (true);
+  for select to authenticated using (
+    (select auth.uid()) = id
+    or exists (
+      select 1 from public.friendships f
+       where f.user_id = (select auth.uid()) and f.friend_id = profiles.id
+    )
+  );
 
 create policy profiles_update on public.profiles
   for update using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
