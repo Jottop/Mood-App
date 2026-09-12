@@ -8,6 +8,7 @@ import 'package:workmanager/workmanager.dart';
 import 'core/config/env.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'data/repositories/local_mood_color_palette_repository.dart';
 import 'data/repositories/supabase_mood_catalog_repository.dart';
 import 'data/repositories/supabase_mood_repository.dart';
 import 'features/auth/login_screen.dart';
@@ -19,6 +20,7 @@ import 'services/network_timeout.dart';
 import 'state/auth_provider.dart';
 import 'state/friends_provider.dart';
 import 'state/mood_catalog_provider.dart';
+import 'state/mood_color_palette_provider.dart';
 import 'state/mood_provider.dart';
 
 Future<void> main() async {
@@ -96,6 +98,10 @@ class _AppGate extends StatelessWidget {
               ),
               ChangeNotifierProvider(
                 create: (_) => MoodCatalogProvider(repository: SupabaseMoodCatalogRepository())..load(),
+              ),
+              ChangeNotifierProvider(
+                create: (_) =>
+                    MoodColorPaletteProvider(repository: LocalMoodColorPaletteRepository())..load(),
               ),
               ChangeNotifierProvider(
                 create: (_) => FriendsProvider()..refresh(),
@@ -297,6 +303,7 @@ class _LifecycleHandlerState extends State<_LifecycleHandler> with WidgetsBindin
         state == AppLifecycleState.detached) {
       unawaited(context.read<MoodProvider>().flushNow());
       unawaited(context.read<MoodCatalogProvider>().flushNow());
+      unawaited(context.read<MoodColorPaletteProvider>().flushNow());
     }
     // Al volver a la app el día puede haber cambiado (burbujas de hoy):
     // re-publicamos la escena del widget con los datos más frescos.

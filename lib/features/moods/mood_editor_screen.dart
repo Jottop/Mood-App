@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../data/mood_catalog.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
+import '../../state/mood_color_palette_provider.dart';
 import 'widgets/custom_color_picker.dart';
 import 'widgets/emoji_picker.dart';
 
@@ -46,15 +47,68 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
 
   bool get _isValid => _labelController.text.trim().isNotEmpty && _selectedEmoji.isNotEmpty;
 
-  /// `true` si el color actual no pertenece a la paleta rápida (cuando el
-  /// usuario eligió un color personalizado).
-  bool get _isCustomColorSelected =>
-      !MoodColorPalette.options.any((c) => c.toARGB32() == _selectedColor.toARGB32());
+  /// `true` si el color actual no pertenece a la paleta visible (cuando el
+  /// usuario eligió un color personalizado aún no guardado o fuera de
+  /// [MoodColorPaletteProvider.all]).
+  bool _isCustomColorSelected(List<Color> palette) =>
+      !palette.any((c) => c.toARGB32() == _selectedColor.toARGB32());
 
   Future<void> _openCustomColorPicker() async {
     final color = await showCustomColorPicker(context, initialColor: _selectedColor);
     if (color != null && mounted) {
+      // El color elegido queda guardado entre los colores elegibles: pasa
+      // a aparecer como opción rápida (swatch) la próxima vez que se abra
+      // el editor, sin volver a recorrer el selector libre.
+      context.read<MoodColorPaletteProvider>().addCustom(color);
       setState(() => _selectedColor = color);
+    }
+  }
+
+  /// Diálogo de confirmación para quitar un color de la paleta (se dispara
+  /// con mantener presionado sobre el swatch).
+  Future<void> _confirmRemoveColor(Color color) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitar color'),
+        content: const Text(
+          '¿Quieres dejar de mostrar este color en la paleta? Puedes usar "Restaurar originales" si te arrepientes.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Quitar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      context.read<MoodColorPaletteProvider>().removeColor(color);
+    }
+  }
+
+  /// Diálogo de confirmación para restaurar la paleta de colores originales
+  /// por defecto (elimina personalizados y devuelve los base ocultos).
+  Future<void> _confirmRestorePalette() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restaurar colores originales'),
+        content: const Text(
+          'Se eliminarán tus colores personalizados y volverán los colores por defecto que quitaste. ¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      context.read<MoodColorPaletteProvider>().restoreDefault();
     }
   }
 
@@ -138,6 +192,10 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Paleta visible = colores curados (menos los ocultos) + personalizados
+    // guardados. El provider se observa para reflejar altas/bajas al toque.
+    final paletteProvider = context.watch<MoodColorPaletteProvider>();
+    final palette = paletteProvider.all;
     return Scaffold(
       backgroundColor: AppColors.bgBottom,
       appBar: AppBar(
@@ -243,15 +301,38 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
           _EmojiPickerButton(selected: _selectedEmoji, onTap: _openEmojiPicker),
           const SizedBox(height: 20),
 
-          const Text('Color', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
+          Row(
+            children: [
+              const Text('Color', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
+              const Spacer(),
+              // Restaura la paleta de fábrica: vuelve los colores base que
+              // se ocultaron y elimina los personalizados guardados.
+              if (paletteProvider.isModified)
+                TextButton.icon(
+                  onPressed: _confirmRestorePalette,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: AppColors.inkSoft,
+                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                  icon: const Icon(Icons.restore_rounded, size: 16),
+                  label: const Text('Restaurar originales'),
+                ),
+            ],
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
-              for (final color in MoodColorPalette.options)
+              for (final color in palette)
                 GestureDetector(
                   onTap: () => setState(() => _selectedColor = color),
+                  // Mantener presionado permite quitar el color de la
+                  // paleta (base o personalizado).
+                  onLongPress: () => _confirmRemoveColor(color),
                   child: Container(
                     width: 38,
                     height: 38,
@@ -266,7 +347,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
                 ),
               // Opcion de color personalizado al final de la fila.
               _CustomColorTile(
-                selected: _isCustomColorSelected,
+                selected: _isCustomColorSelected(palette),
                 onTap: _openCustomColorPicker,
               ),
             ],
