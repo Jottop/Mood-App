@@ -129,7 +129,7 @@ class _FriendMoodsCopySheetState extends State<_FriendMoodsCopySheet> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Marca qué atributos copiar (color, emoji o nombre) y elige las emociones que quieras.',
+              'Marca qué atributos copiar (color, emoji o nombre), elige las emociones y luego decides si reemplazar una tuya o agregarla como nueva.',
               style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 14),
@@ -267,10 +267,25 @@ class _FriendMoodsCopySheetState extends State<_FriendMoodsCopySheet> {
   }
 }
 
+/// Acción elegida en el diálogo de destino para una emoción del amigo.
+enum _CopyAction { abort, skip, replace, add }
+
+class _CopyPick {
+  final _CopyAction action;
+  final MoodType? target;
+
+  const _CopyPick._(this.action, [this.target]);
+
+  const _CopyPick.abort() : this._(_CopyAction.abort);
+  const _CopyPick.skip() : this._(_CopyAction.skip);
+  const _CopyPick.replace(MoodType target) : this._(_CopyAction.replace, target);
+  const _CopyPick.add() : this._(_CopyAction.add);
+}
+
 /// Aplica la copia de las emociones seleccionadas sobre el catálogo propio:
-/// para cada emoción del amigo pregunta en cuál de las propias guardarla
-/// (o se salta si se cancela) y actualiza solo los atributos marcados.
-/// Devuelve cuántas emociones propias se actualizaron.
+/// para cada emoción del amigo pregunta si agregarla como nueva o en cuál
+/// de las propias guardarla (reemplazo). Devuelve cuántas emociones se
+/// agregaron o actualizaron.
 Future<int> runFriendCopyFlow(
   BuildContext context, {
   required FriendCopySelection selection,
@@ -279,8 +294,26 @@ Future<int> runFriendCopyFlow(
   var applied = 0;
   for (final friendMood in selection.moods) {
     if (!context.mounted) return applied;
-    final target = await _pickLocalMood(context, catalog, friendMood: friendMood);
-    if (target == null || !context.mounted) return applied;
+    final pick = await _showDestinationPicker(context, catalog, friendMood: friendMood);
+    if (pick == null || pick.action == _CopyAction.abort || !context.mounted) return applied;
+    if (pick.action == _CopyAction.skip) continue;
+    if (pick.action == _CopyAction.add) {
+      final proceed = await _confirmAddIfOverLimit(context, catalog);
+      if (!proceed || !context.mounted) continue;
+      // Agregar copia SIEMPRE todo (nombre, emoji, color y el indicador de
+      // especial); los chips solo gobiernan el reemplazo.
+      await catalog.addMood(
+        label: friendMood.label,
+        emoji: EmojiPack.sanitize(friendMood.emoji),
+        color: friendMood.color,
+        isSpecial: friendMood.isSpecial,
+      );
+      applied++;
+      continue;
+    }
+    // Reemplazo: aplica solo los atributos que se marcaron, conservando el
+    // id propio (los registros ya guardados no se tocan).
+    final target = pick.target!;
     await catalog.updateMood(
       target.id,
       label: selection.copyLabel ? friendMood.label : null,
@@ -292,48 +325,75 @@ Future<int> runFriendCopyFlow(
   return applied;
 }
 
-/// Diálogo que pregunta en cuál de las emociones propias guardar la copia
-/// de [friendMood]. Devuelve la emoción elegida o null si se cancela.
-Future<MoodType?> _pickLocalMood(
+/// Si ya se alcanzó el máximo óptimo de emociones, pide confirmación para
+/// agregar una más (igual que el editor de estados). Devuelve `true` si se
+/// puede agregar (sin diálogo si aún hay margen).
+Future<bool> _confirmAddIfOverLimit(BuildContext context, MoodCatalogProvider catalog) async {
+  if (catalog.moods.length < MoodCatalogProvider.maxOptimalMoods) return true;
+  if (!context.mounted) return false;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Límite alcanzado'),
+      content: const Text(
+        'Ya tienes 10 emociones, que es el máximo óptimo para un uso fluido del selector. ¿Deseas agregarla de todas formas?',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+        TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar de todas formas')),
+      ],
+    ),
+  );
+  return confirmed == true;
+}
+
+/// Diálogo por cada emoción del amigo: ofrece agregarla como nueva o
+/// reemplazarla en alguna de las propias. Devuelve la acción elegida o null
+/// si el diálogo se cierra sin decidir (se corta el resto del flujo).
+Future<_CopyPick?> _showDestinationPicker(
   BuildContext context,
   MoodCatalogProvider catalog, {
   required MoodType friendMood,
 }) {
   final own = catalog.moods;
-  return showDialog<MoodType>(
+  return showDialog<_CopyPick>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Copiar en una de tus emociones'),
+      title: Text('Copiar "${friendMood.emoji} ${friendMood.label}"'),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 360),
+        constraints: const BoxConstraints(maxHeight: 380),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Copiar "${friendMood.emoji} ${friendMood.label}" en:',
-              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.ink),
-            ),
-            const SizedBox(height: 4),
             const Text(
-              'Se aplicarán solo los atributos que marcaste.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+              'Agrégala como nueva o reemplaza una tuya. Al reemplazar se aplican solo los atributos que marcaste.',
+              style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 12),
             Flexible(
-              child: ListView.builder(
+              child: ListView(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
-                itemCount: own.length,
-                itemBuilder: (context, index) {
-                  final mood = own[index];
-                  return _EmotionRow(
-                    mood: mood,
-                    selected: false,
-                    onTap: () => Navigator.of(context).pop(mood),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.inkSoft),
-                  );
-                },
+                children: [
+                  _AddNewTile(onTap: () => Navigator.of(context).pop(const _CopyPick.add())),
+                  for (var i = 0; i < own.length; i++) ...[
+                    if (i == 0) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'O reemplazar en alguna tuya',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    _EmotionRow(
+                      mood: own[i],
+                      selected: false,
+                      onTap: () => Navigator.of(context).pop(_CopyPick.replace(own[i])),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.inkSoft),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
@@ -341,13 +401,57 @@ Future<MoodType?> _pickLocalMood(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(const _CopyPick.abort()),
           style: TextButton.styleFrom(foregroundColor: AppColors.inkSoft),
+          child: const Text('Detener'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(const _CopyPick.skip()),
+          style: TextButton.styleFrom(foregroundColor: AppColors.ink),
           child: const Text('Saltar'),
         ),
       ],
     ),
   );
+}
+
+/// Tile destacado del diálogo de destino: agrega la emoción del amigo como
+/// nueva en mi catálogo (copiada completa, sin importar los chips).
+class _AddNewTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddNewTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: AppColors.ink,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.add_circle_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Agregar como nueva',
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: Colors.white),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Fila de una emoción (del amigo o propia): círculo con su color, emoji,
