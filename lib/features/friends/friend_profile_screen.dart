@@ -7,10 +7,12 @@ import '../../data/friend_data_loader.dart';
 import '../../data/models/profile.dart';
 import '../../data/mood_view_data.dart';
 import '../../state/friends_provider.dart';
+import '../../state/mood_catalog_provider.dart';
 import '../home/widgets/day_entry_list.dart';
 import '../home/widgets/mood_bubble.dart';
 import '../history/calendar_screen.dart';
 import '../history/mood_summary.dart';
+import 'friend_moods_copy_sheet.dart';
 
 /// Perfil de un amigo (solo lectura): el resumen de HOY del amigo — burbuja
 /// grande con los colores de sus registros, desglose de porcentajes — y
@@ -55,6 +57,37 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         _error = 'No se pudo cargar la información de $_displayName. Revisa la conexión e inténtalo de nuevo.';
         _loading = false;
       });
+    }
+  }
+
+  /// Abre el panel para copiar las emociones del amigo en el catálogo
+  /// propio: selección de atributos (color/emoji/nombre) y de emociones,
+  /// y luego el flujo que pregunta en cuál emoción propia guardar cada copia.
+  Future<void> _openCopyEmotions() async {
+    final view = _view;
+    if (view == null) return;
+    final selection = await showFriendMoodsCopySheet(
+      context,
+      view: view,
+      friendName: _displayName,
+    );
+    if (selection == null || !mounted) return;
+    final applied = await runFriendCopyFlow(
+      context,
+      selection: selection,
+      catalog: context.read<MoodCatalogProvider>(),
+    );
+    if (!mounted) return;
+    if (applied > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            applied == 1
+                ? 'Se actualizó 1 de tus emociones desde el perfil de $_displayName.'
+                : 'Se actualizaron $applied de tus emociones desde el perfil de $_displayName.',
+          ),
+        ),
+      );
     }
   }
 
@@ -181,26 +214,47 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => CalendarScreen(
-                          view: view,
-                          readOnly: true,
-                          title: 'Calendario de $_displayName',
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CalendarScreen(
+                              view: view,
+                              readOnly: true,
+                              title: 'Calendario de $_displayName',
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
+                        label: const Text('Ver su historial',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.card,
+                          side: const BorderSide(color: AppColors.cardLine),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 34),
                         ),
                       ),
-                    ),
-                    icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
-                    label: const Text('Ver su historial',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: AppColors.card,
-                      side: const BorderSide(color: AppColors.cardLine),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: const Size(0, 34),
-                    ),
+                      OutlinedButton.icon(
+                        onPressed: _openCopyEmotions,
+                        icon: const Icon(Icons.emoji_emotions_outlined, size: 15, color: AppColors.inkSoft),
+                        label: const Text('Ver sus emociones',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.card,
+                          side: const BorderSide(color: AppColors.cardLine),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 34),
+                        ),
+                      ),
+                    ],
                   ),
                   if (todayDesc.isNotEmpty) ...[
                     const SizedBox(height: 5),
