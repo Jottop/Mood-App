@@ -1,15 +1,13 @@
 ﻿{
-    "versionName":  "0.2.7",
-    "versionCode":  9,
+    "versionName":  "0.2.8",
+    "versionCode":  10,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "La burbuja de hoy vuelve a quedar centrada y tu avatar (y el del amigo) se agranda a la esquina del bloque.",
-                  "Ajustes ahora incluye \u0027Buscar actualizaciones\u0027 y \u0027Cerrar sesión\u0027; el header del home queda solo con la tuerca.",
-                  "El botón del calendario pasa a la fila de \u0027Mis estados de ánimo\u0027 como icono, junto al botón de reiniciar el día.",
-                  "Durazno rediseñado: más rosado, sin la línea que lo partía por la mitad.",
-                  "La píldora de amigos rota a vertical EN VIVO mientras la arrastras a un costado, y vuelve a la barra horizontal al centro."
+                  "Al abrir la app tras dejarla cerrada mucho tiempo, la sesion se recupera del snapshot y ya no se vuelve a pedir el login (los tokens rotados por la tarea de fondo del widget ya no te desloguean)",
+                  "Si el servidor rechaza la sesion de verdad, el login muestra un aviso claro en vez de montar Home con errores",
+                  "Corregido el mensaje de \u0027Sesion no iniciada.\u0027 que aparecia al entrar con la app cerrada un largo rato"
               ],
     "sizeBytes":  56123841,
-    "sha256":  "36bcd9d946b098e0a78ef4e0d3d9531af61a0deb7fe5e768d1a71bdc0f5f76d3",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.7/app-release.apk"
+    "sha256":  "771ed28f258596bcbfd74a7b958b3822a9b002e3d2321438da6d9a5896c3436d",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.8/app-release.apk"
 }
