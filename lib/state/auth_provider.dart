@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/profile.dart';
@@ -214,13 +214,114 @@ class AuthProvider extends ChangeNotifier {
     unawaited(_clearSessionSnapshot());
   }
 
+  /// Actualiza la personalización del perfil que ven los amigos: alias
+  /// (opcional), avatar de fruta animada y colores de la píldora. Devuelve
+  /// un mensaje de error o null si salió bien.
+  Future<String?> updateProfile({
+    String? alias,
+    String? avatar,
+    Color? pillBg,
+    Color? pillFg,
+  }) async {
+    final uid = _auth.currentUser?.id;
+    if (uid == null) return _networkError;
+    final cleanAlias = alias?.trim();
+    try {
+      await withSupabaseTimeout(() => Supabase.instance.client
+          .from('profiles')
+          .update({
+            'alias': cleanAlias == null || cleanAlias.isEmpty ? null : cleanAlias,
+            'avatar': avatar,
+            if (pillBg != null) 'pill_bg': pillBg.toARGB32(),
+            if (pillFg != null) 'pill_fg': pillFg.toARGB32(),
+          })
+          .eq('id', uid));
+      final current = _profile;
+      if (current != null) {
+        _profile = Profile(
+          id: current.id,
+          username: current.username,
+          friendCode: current.friendCode,
+          alias: cleanAlias == null || cleanAlias.isEmpty ? null : cleanAlias,
+          avatar: avatar ?? current.avatar,
+          pillBg: pillBg ?? current.pillBg,
+          pillFg: pillFg ?? current.pillFg,
+          createdAt: current.createdAt,
+        );
+        notifyListeners();
+      }
+      return null;
+    } catch (_) {
+      return _networkError;
+    }
+  }
+
+  /// Cambia el username. Como el email de login es determinista
+  /// (`<username>@tu-dia.local`), cambiarlo reautentica también el email
+  /// interno de la cuenta. Devuelve un mensaje de error o null si salió bien.
+  Future<String?> changeUsername(String username) async {
+    final key = normalizeUsername(username);
+    final usernameError = validateUsername(key);
+    if (usernameError != null) return usernameError;
+    final current = _profile;
+    if (current != null && key == current.username) return null;
+    try {
+      await withSupabaseTimeout(() => _auth.updateUser(
+            UserAttributes(
+              email: emailForUsername(key),
+              data: {'username': key},
+            ),
+          ));
+      final uid = _auth.currentUser?.id;
+      if (uid != null) {
+        await withSupabaseTimeout(() => Supabase.instance.client
+            .from('profiles')
+            .update({'username': key})
+            .eq('id', uid));
+      }
+      if (current != null) {
+        _profile = Profile(
+          id: current.id,
+          username: key,
+          friendCode: current.friendCode,
+          alias: current.alias,
+          avatar: current.avatar,
+          pillBg: current.pillBg,
+          pillFg: current.pillFg,
+          createdAt: current.createdAt,
+        );
+        notifyListeners();
+      }
+      return null;
+    } on AuthException catch (e) {
+      return _mapAuthError(e);
+    } catch (_) {
+      return _networkError;
+    }
+  }
+
+  /// Cambia la contraseña de la cuenta. Devuelve un mensaje de error o null.
+  Future<String?> changePassword(String password) async {
+    if (password.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    }
+    try {
+      await withSupabaseTimeout(() => _auth.updateUser(UserAttributes(password: password)));
+      return null;
+    } on AuthException catch (e) {
+      return _mapAuthError(e);
+    } catch (_) {
+      return _networkError;
+    }
+  }
+
   static const _networkError =
       'No se pudo conectar al servidor. Verifica tu conexión e inténtalo de nuevo.';
 
   String _mapAuthError(AuthException e) {
     final code = e.code ?? '';
     final message = e.message.toLowerCase();
-    if (code == 'user_already_exists' || message.contains('registered')) {
+    if (code == 'user_already_exists' || code == 'email_exists' || message.contains('registered')) {
       return 'Ese usuario ya existe. Prueba con otro nombre.';
     }
     if (code == 'weak_password' || message.contains('weak password') || message.contains('should be at least')) {

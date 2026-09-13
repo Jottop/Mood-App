@@ -12,7 +12,7 @@ import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../history/calendar_screen.dart';
 import '../moods/manage_moods_screen.dart';
-import '../widget_comparison/widget_comparison_screen.dart';
+import '../profile/settings_screen.dart';
 import 'widgets/day_entry_list.dart';
 import 'widgets/mood_bubble.dart';
 import 'widgets/mood_picker_grid.dart';
@@ -325,10 +325,10 @@ class _Header extends StatelessWidget {
             IconButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const WidgetComparisonScreen(),
+                  builder: (_) => const SettingsScreen(),
                 ),
               ),
-              tooltip: 'Widget de comparación',
+              tooltip: 'Ajustes',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
@@ -355,6 +355,27 @@ class _Header extends StatelessWidget {
 }
 
 Future<void> _logout(BuildContext context) async {
+  // Confirmación explícita: cerrar la sesión desloguea el dispositivo.
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('¿Cerrar sesión?'),
+      content: const Text(
+        'Tus registros y emociones quedan guardados en tu cuenta. Solo tendrás que volver a iniciar sesión con tu usuario y contraseña.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
   // No queremos perder el último toque: forzamos el guardado pendiente de
   // ambos providers antes de desmontar la sesión.
   final mood = context.read<MoodProvider>();

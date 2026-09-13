@@ -1,42 +1,206 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/avatar.dart';
 import '../../data/models/profile.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
 import 'friend_profile_screen.dart';
 import 'friends_sheet.dart';
 
+enum _PillEdge { center, left, right }
+
 /// Overlay global (por encima del Navigator) que muestra la píldora flotante
 /// del hub de amigos: mi avatar, hasta [FriendsHubPill.maxFriends] amigos y
 /// el botón "+". Se oculta mientras el teclado está abierto para no tapar
 /// los campos de texto.
-class FriendsHubOverlay extends StatelessWidget {
+///
+/// La píldora es arrastrable (mantener presionado y mover): al soltarla se
+/// adhiere al margen izquierdo o derecho (con altura libre) o vuelve al
+/// centro inferior si se suelta centrada. La posición se guarda solo en el
+/// dispositivo.
+class FriendsHubOverlay extends StatefulWidget {
   final GlobalKey<NavigatorState> navigator;
   final Widget child;
 
   const FriendsHubOverlay({super.key, required this.navigator, required this.child});
 
   @override
+  State<FriendsHubOverlay> createState() => _FriendsHubOverlayState();
+}
+
+class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
+  static const _hInset = 12.0;
+  static const _vInset = 10.0;
+  static const _storageKey = 'friends_pill_position';
+
+  final _pillKey = GlobalKey();
+
+  _PillEdge _edge = _PillEdge.center;
+  double _fraction = 0;
+  Offset _drag = Offset.zero;
+  bool _dragging = false;
+  Size _pillSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
+    _loadPosition();
+  }
+
+  /// Recupera la posición guardada en este dispositivo.
+  Future<void> _loadPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_storageKey);
+    if (raw == null || raw.isEmpty) return;
+    if (raw == 'center') {
+      if (mounted) {
+        setState(() => _edge = _PillEdge.center);
+      }
+      return;
+    }
+    final parts = raw.split(':');
+    if (parts.length != 2) return;
+    final edge = parts[0] == 'right' ? _PillEdge.right : _PillEdge.left;
+    final fraction = (double.tryParse(parts[1]) ?? 0).clamp(0.0, 1.0);
+    if (!mounted) return;
+    setState(() {
+      _edge = edge;
+      _fraction = fraction;
+    });
+  }
+
+  Future<void> _savePosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = _edge == _PillEdge.center
+        ? 'center'
+        : '${_edge == _PillEdge.right ? 'right' : 'left'}:${_fraction.toStringAsFixed(3)}';
+    await prefs.setString(_storageKey, value);
+  }
+
+  /// Mide la píldora real para posicionarla con precisión (se ejecuta todos
+  /// los frames; el tamaño apenas cambia y el guardado es barato).
+  void _measurePill() {
+    final box = _pillKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final size = box.size;
+    if (size != _pillSize && mounted) {
+      setState(() => _pillSize = size);
+    }
+  }
+
+  Offset _baseOffset(Size screen, double topInset, double bottomInset,
+      double bandTop, double bandHeight, double w, double h) {
+    switch (_edge) {
+      case _PillEdge.center:
+        return Offset(
+          (screen.width - w) / 2,
+          screen.height - bottomInset - _vInset - h,
+        );
+      case _PillEdge.left:
+        return Offset(_hInset, bandTop + bandHeight * _fraction);
+      case _PillEdge.right:
+        return Offset(screen.width - _hInset - w, bandTop + bandHeight * _fraction);
+    }
+  }
+
+  /// Al soltar el arrastre: recalcula el margen (izquierda/derecha o centro
+  /// inferior) y la altura vertical, y persiste la posición.
+  void _releaseDrag(
+      Size screen, double topInset, double bottomInset, double bandTop,
+      double bandHeight, double w, double h) {
+    if (!mounted) return;
+    final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+    final maxLeft = math.max(_hInset, screen.width - w - _hInset);
+    final fx = (base.dx + _drag.dx).clamp(_hInset, maxLeft);
+    final maxTop = math.max(bandTop, bandTop + bandHeight);
+    final fy = (base.dy + _drag.dy).clamp(bandTop, maxTop);
+
+    final cx = fx + w / 2;
+    final mid = screen.width / 2;
+    final centered = (cx - mid).abs() < w;
+
+    _PillEdge newEdge;
+    var newFraction = _fraction;
+    if (centered) {
+      newEdge = _PillEdge.center;
+    } else {
+      newEdge = cx < mid ? _PillEdge.left : _PillEdge.right;
+      newFraction =
+          bandHeight <= 0 ? 0.0 : ((fy - bandTop) / bandHeight).clamp(0.0, 1.0);
+    }
+
+    setState(() {
+      _dragging = false;
+      _drag = Offset.zero;
+      _edge = newEdge;
+      _fraction = newFraction;
+    });
+    _savePosition();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    return Stack(
-      textDirection: TextDirection.ltr,
-      children: [
-        Positioned.fill(child: child),
-        if (!keyboardOpen)
+    return LayoutBuilder(builder: (context, constraints) {
+      if (keyboardOpen) {
+        return Stack(
+          textDirection: TextDirection.ltr,
+          children: [
+            Positioned.fill(child: widget.child),
+          ],
+        );
+      }
+
+      final screen = constraints.biggest;
+      final topInset = MediaQuery.paddingOf(context).top;
+      final bottomInset = MediaQuery.paddingOf(context).bottom;
+      final w = _pillSize.width > 0 ? _pillSize.width : 240.0;
+      final h = _pillSize.height > 0 ? _pillSize.height : 54.0;
+      final bandTop = topInset + _vInset;
+      final bandHeight = math.max(
+          0.0, screen.height - topInset - bottomInset - _vInset * 2 - h);
+
+      final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+      final maxLeft = math.max(_hInset, screen.width - w - _hInset);
+      final maxTop = math.max(bandTop, bandTop + bandHeight);
+      final left = (base.dx + _drag.dx).clamp(_hInset, maxLeft);
+      final top = (base.dy + _drag.dy).clamp(bandTop, maxTop);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
+
+      return Stack(
+        textDirection: TextDirection.ltr,
+        children: [
+          Positioned.fill(child: widget.child),
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              minimum: const EdgeInsets.only(bottom: 10),
-              child: Center(child: FriendsHubPill(navigator: navigator)),
+            left: left,
+            top: top,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onLongPressStart: (_) => setState(() => _dragging = true),
+              onLongPressMoveUpdate: (details) =>
+                  setState(() => _drag = details.offsetFromOrigin),
+              onLongPressEnd: (_) =>
+                  _releaseDrag(screen, topInset, bottomInset, bandTop, bandHeight, w, h),
+              onLongPressCancel: () => setState(() {
+                _dragging = false;
+                _drag = Offset.zero;
+              }),
+              child: Transform.scale(
+                scale: _dragging ? 1.04 : 1.0,
+                child: FriendsHubPill(key: _pillKey, navigator: widget.navigator),
+              ),
             ),
           ),
-      ],
-    );
+        ],
+      );
+    });
   }
 }
 
@@ -44,14 +208,6 @@ class FriendsHubOverlay extends StatelessWidget {
 /// "+" para copiar el código, agregar por código o quitar amigos.
 class FriendsHubPill extends StatelessWidget {
   static const maxFriends = 4;
-
-  static const _friendPalette = <Color>[
-    Color(0xFFD9E9FA),
-    Color(0xFFE3F5E6),
-    Color(0xFFFCEBD8),
-    Color(0xFFEFE6FB),
-    Color(0xFFFBE0EA),
-  ];
 
   final GlobalKey<NavigatorState> navigator;
 
@@ -85,11 +241,12 @@ class FriendsHubPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Avatar(
-            label: myProfile?.username ?? '?',
-            background: AppColors.cream,
-            foreground: AppColors.creamInk,
-            isSelected: isMeSelected,
+          AvatarBadge(
+            background: myProfile?.pillBg ?? AppColors.cream,
+            foreground: myProfile?.pillFg ?? AppColors.creamInk,
+            avatar: myProfile?.avatar,
+            initial: myProfile?.displayInitial ?? '?',
+            selected: isMeSelected,
             onTap: () {
               // La selección se ajusta DESDE el gesto (antes de navegar), no
               // desde el ciclo de vida del route: notificar dentro de
@@ -110,11 +267,12 @@ class FriendsHubPill extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           for (final friend in visibleFriends) ...[
-            _Avatar(
-              label: friend.username,
-              background: _colorFor(friend.username),
-              foreground: AppColors.ink,
-              isSelected: selectedProfileId == friend.id,
+            AvatarBadge(
+              background: friend.pillBg,
+              foreground: friend.pillFg,
+              avatar: friend.avatar,
+              initial: friend.displayInitial,
+              selected: selectedProfileId == friend.id,
               onTap: () {
                 friendsProvider.selectProfile(friend.id);
                 _openFriend(friend);
@@ -134,12 +292,6 @@ class FriendsHubPill extends StatelessWidget {
     );
   }
 
-  static Color _colorFor(String username) {
-    final hash =
-        username.codeUnits.fold<int>(0, (acc, u) => (acc * 31 + u) & 0x7fffffff);
-    return _friendPalette[hash % _friendPalette.length];
-  }
-
   /// Mi avatar: vuelve al inicio (el menú principal del día, el Home),
   /// estés donde estés dentro del Navigator.
   void _goHome() {
@@ -149,64 +301,6 @@ class FriendsHubPill extends StatelessWidget {
   void _openFriend(Profile friend) {
     navigator.currentState?.push(
       MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: friend)),
-    );
-  }
-}
-
-/// Avatar circular con la inicial del usuario. El que corresponde al perfil
-/// seleccionado (el que se está viendo) lleva un anillo; el resto no.
-class _Avatar extends StatelessWidget {
-  final String label;
-  final Color background;
-  final Color foreground;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  const _Avatar({
-    required this.label,
-    required this.background,
-    required this.foreground,
-    this.isSelected = false,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = label.isEmpty ? '?' : label[0].toUpperCase();
-    // Semantics en lugar de Tooltip: la píldora vive POR ENCIMA del
-    // Navigator (MaterialApp.builder), donde no hay Overlay y Tooltip crashea.
-    return Semantics(
-      label: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: background,
-            shape: BoxShape.circle,
-            // Siempre el mismo ancho de borde (transparente si no está
-            // seleccionado) para que el anillo no cambie el tamaño al
-            // seleccionar.
-            border: Border.all(
-              color: isSelected ? AppColors.ink : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: Text(
-            initial,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: foreground,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -71,7 +71,7 @@ class FriendsProvider extends ChangeNotifier {
     }
     final profiles = await _client
         .from('profiles')
-        .select('id, username, friend_code, created_at')
+        .select('id, username, friend_code, alias, avatar, pill_bg, pill_fg, created_at')
         .inFilter('id', friendIds);
     final byId = {for (final p in profiles) p['id'] as String: Profile.fromMap(p)};
     // Mantiene el orden de la relación (más nuevos primero).

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/avatar.dart';
 import '../../core/widgets/day_bubble_data.dart';
 import '../../data/friend_data_loader.dart';
 import '../../data/models/profile.dart';
@@ -10,6 +11,7 @@ import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../home/widgets/day_entry_list.dart';
 import '../home/widgets/mood_bubble.dart';
+import '../home/widgets/mood_sphere_visual.dart';
 import '../history/calendar_screen.dart';
 import '../history/mood_summary.dart';
 import 'friend_moods_copy_sheet.dart';
@@ -180,13 +182,48 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         ),
         const SizedBox(height: 12),
         // Misma burbuja que el Home (flotación + auras), pero con los
-        // datos del amigo.
+        // datos del amigo. El avatar del amigo se asoma en la esquina
+        // superior derecha de la burbuja (sin estar pegado a ella).
         Center(
-          child: FloatingSphere(
-            colors: dayBubbleData(view, today).colorsTopToBottom,
-            auraColors: dayBubbleData(view, today).auraColors,
-            size: 200,
-            floatAmplitude: 12,
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              FloatingSphere(
+                colors: dayBubbleData(view, today).colorsTopToBottom,
+                auraColors: dayBubbleData(view, today).auraColors,
+                size: 200,
+                floatAmplitude: 12,
+              ),
+              Transform.translate(
+                // El disco de la burbuja queda corrido hacia abajo por el
+                // espacio reservado del aura; el badge va justo sobre su
+                // borde superior derecho.
+                offset: Offset(-12, MoodSphereVisual.auraReservedSpace(200) + 8),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink.withValues(alpha: 0.18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: AvatarBadge(
+                    size: 44,
+                    background: widget.friend.pillBg,
+                    foreground: widget.friend.pillFg,
+                    avatar: widget.friend.avatar,
+                    initial: widget.friend.displayInitial,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),

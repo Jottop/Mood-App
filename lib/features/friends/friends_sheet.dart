@@ -365,7 +365,7 @@ class _FriendTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = friend.username.isEmpty ? '?' : friend.username[0].toUpperCase();
+    final initial = friend.displayInitial;
     return GestureDetector(
       onTap: onTap,
       child: Container(

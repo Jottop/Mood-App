@@ -7,6 +7,7 @@ import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
 import 'mood_editor_screen.dart';
+import 'trash_screen.dart';
 
 /// Lista de estados de ánimo del catálogo, con opción de editar cada uno
 /// o agregar uno nuevo (spec §1: agregar, modificar o eliminar estados).
@@ -22,6 +23,17 @@ class ManageMoodsScreen extends StatelessWidget {
         elevation: 0,
         title: const Text('Mis estados de ánimo', style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
         iconTheme: const IconThemeData(color: AppColors.ink),
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TrashScreen()),
+            ),
+            tooltip: 'Papelera',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            icon: const Icon(Icons.delete_outline_rounded, size: 22, color: AppColors.inkSoft),
+          ),
+        ],
       ),
       body: Consumer<MoodCatalogProvider>(
         builder: (context, catalog, _) {

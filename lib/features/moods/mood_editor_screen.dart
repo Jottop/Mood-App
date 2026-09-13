@@ -185,8 +185,21 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<MoodCatalogProvider>().deleteMood(widget.existing!.id);
+      final catalog = context.read<MoodCatalogProvider>();
+      final messenger = ScaffoldMessenger.of(context);
+      final moodId = widget.existing!.id;
+      await catalog.deleteMood(moodId);
       if (mounted) Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Emoción eliminada'),
+          action: SnackBarAction(
+            label: 'Deshacer',
+            onPressed: () => catalog.restoreMood(moodId),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
