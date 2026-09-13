@@ -1,13 +1,11 @@
 ﻿{
-    "versionName":  "0.2.8",
-    "versionCode":  10,
+    "versionName":  "0.2.9",
+    "versionCode":  11,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Al abrir la app tras dejarla cerrada mucho tiempo, la sesion se recupera del snapshot y ya no se vuelve a pedir el login (los tokens rotados por la tarea de fondo del widget ya no te desloguean)",
-                  "Si el servidor rechaza la sesion de verdad, el login muestra un aviso claro en vez de montar Home con errores",
-                  "Corregido el mensaje de \u0027Sesion no iniciada.\u0027 que aparecia al entrar con la app cerrada un largo rato"
+                  "Nuevo icono del launcher con la imagen elegida, incluido el icono adaptativo para Android 8+"
               ],
-    "sizeBytes":  56123841,
-    "sha256":  "771ed28f258596bcbfd74a7b958b3822a9b002e3d2321438da6d9a5896c3436d",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.8/app-release.apk"
+    "sizeBytes":  56525666,
+    "sha256":  "76c88b19bb20f69195c9b1ab40611727c1e3f80610beeb49a30d50ab6ef29b84",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.9/app-release.apk"
 }
