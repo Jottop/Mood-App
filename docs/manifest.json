@@ -1,15 +1,15 @@
 ﻿{
-    "versionName":  "0.2.6",
-    "versionCode":  8,
+    "versionName":  "0.2.7",
+    "versionCode":  9,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Desliza hacia abajo para actualizar: recarga tus registros, tu catalogo, tus amigos y tu perfil.",
-                  "Tu avatar (y el de tus amigos) se muestra en la esquina superior derecha de la burbuja; tocar el tuyo abre \u0027Editar perfil\u0027.",
-                  "Arreglado el arrastre de la pildora de amigos: ahora al soltarla cerca de un borde se queda anclada ahi.",
-                  "El anillo negro de seleccion de la pildora ya no tapa la imagen: se dibuja por fuera del circulo.",
-                  "10 avatares nuevos: Durazno, Limon, Zanahoria, Mango y Berenjena se suman a la Fresa, Banana, Sandia, Manzana y Naranja; la sandia ahora es una rodaja en perspectiva."
+                  "La burbuja de hoy vuelve a quedar centrada y tu avatar (y el del amigo) se agranda a la esquina del bloque.",
+                  "Ajustes ahora incluye \u0027Buscar actualizaciones\u0027 y \u0027Cerrar sesión\u0027; el header del home queda solo con la tuerca.",
+                  "El botón del calendario pasa a la fila de \u0027Mis estados de ánimo\u0027 como icono, junto al botón de reiniciar el día.",
+                  "Durazno rediseñado: más rosado, sin la línea que lo partía por la mitad.",
+                  "La píldora de amigos rota a vertical EN VIVO mientras la arrastras a un costado, y vuelve a la barra horizontal al centro."
               ],
-    "sizeBytes":  56107457,
-    "sha256":  "24586a4533f6166c87d90634eda637492b111742974b64e1e7be67a3ac98bc7e",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.6/app-release.apk"
+    "sizeBytes":  56123841,
+    "sha256":  "36bcd9d946b098e0a78ef4e0d3d9531af61a0deb7fe5e768d1a71bdc0f5f76d3",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.7/app-release.apk"
 }
