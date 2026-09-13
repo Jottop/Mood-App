@@ -9,4 +9,5 @@ class AppColors {
   static const cardLine = Color(0xFFE3ECF5);
   static const cream = Color(0xFFFBF3DE);
   static const creamInk = Color(0xFF7A6A3F);
+  static const logoBg = Color(0xFFFBEEDC);
 }
