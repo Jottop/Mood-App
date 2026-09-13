@@ -23,13 +23,25 @@ enum AuthStatus {
 /// código de amigo) se crea solo vía el trigger `handle_new_user`.
 class AuthProvider extends ChangeNotifier {
   AuthProvider() {
-    _auth.onAuthStateChange.listen(_onAuthStateChange);
+    _auth.onAuthStateChange.listen(
+      _onAuthStateChange,
+      onError: (Object error, StackTrace stackTrace) {
+        // GoTrue ya registró estos errores (p. ej. un refresh que falló por
+        // red o un timeout). Handler vacío: evita que se propaguen como
+        // errores async no controlados.
+      },
+    );
     // Estado inicial sin esperar al stream: si ya hay sesión, entramos
     // con un breve "resolviendo" mientras llega el perfil.
     final hasSession = _auth.currentSession != null;
-    _status = hasSession ? AuthStatus.resolving : AuthStatus.signedOut;
     if (hasSession) {
       unawaited(_startSignedIn());
+    } else {
+      // Sin sesión en memoria: la tarea de fondo pudo rotar los tokens con
+      // la app cerrada y dejar el storage propio de Supabase con uno ya
+      // consumido. El snapshot guarda el token MÁS reciente (aún válido):
+      // se intenta restaurar antes de pedir el login.
+      unawaited(_restoreFromSnapshot());
     }
   }
 
@@ -38,12 +50,23 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.resolving;
   Profile? _profile;
 
+  /// true solo tras un arranque donde la sesión guardada fue rechazada por
+  /// el servidor (rotada o vencida de verdad) y no se pudo recuperar. El
+  /// login lo muestra una vez como aviso y lo consume.
+  bool _sessionExpiredNotice = false;
+
   AuthStatus get status => _status;
   bool get isSignedIn => _status == AuthStatus.signedIn;
 
   /// Perfil del usuario conectado (propio). Nulo si no hay sesión o aún
   /// cargando.
   Profile? get profile => _profile;
+
+  /// Aviso de "sesión vencida" pendiente de mostrar en el login.
+  bool get sessionExpiredNotice => _sessionExpiredNotice;
+
+  /// Marca el aviso de "sesión vencida" como leído.
+  void consumeSessionExpiredNotice() => _sessionExpiredNotice = false;
 
   Future<void> _onAuthStateChange(AuthState state) async {
     switch (state.event) {
@@ -84,6 +107,53 @@ class AuthProvider extends ChangeNotifier {
       // deslogueamos al usuario. Entramos igual y los providers de datos
       // muestran su propio error con reintento. La validación real ocurre
       // en el siguiente arranque o cuando los datos se retran con éxito.
+      _profile = null;
+    }
+    // Si GoTrue borró la sesión durante el arranque (token rechazado), NO
+    // entramos: la UI va al login y el aviso explica lo que pasó, en vez de
+    // montar Home y mostrar "Sesión no iniciada." por toda la app.
+    if (_auth.currentSession == null) {
+      _sessionExpiredNotice = true;
+      _setStatus(AuthStatus.signedOut);
+      return;
+    }
+    _setStatus(AuthStatus.signedIn);
+  }
+
+  /// Sin sesión en memoria al arrancar (el storage propio de Supabase quedó
+  /// con un token ya consumido por la tarea de fondo), se intenta restaurar
+  /// desde el snapshot, que guarda el refresh token rotado MÁS reciente.
+  /// Éxito → arranque normal. Rechazo del servidor → login con aviso de
+  /// sesión vencida. Sin red → login sin aviso (no hay sesión que conservar).
+  Future<void> _restoreFromSnapshot() async {
+    final snapshot = await readSessionSnapshot();
+    final refreshToken = snapshot?['refreshToken'] as String?;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      _setStatus(AuthStatus.signedOut);
+      return;
+    }
+    try {
+      await withSupabaseTimeout(() => _auth.setSession(refreshToken));
+    } on AuthRetryableFetchException {
+      _setStatus(AuthStatus.signedOut);
+      return;
+    } on AuthException {
+      // El servidor rechazó el token: la sesión quedó rotada o vencida de
+      // verdad y no se puede recuperar sin las credenciales del usuario.
+      _sessionExpiredNotice = true;
+      unawaited(_clearSessionSnapshot());
+      _setStatus(AuthStatus.signedOut);
+      return;
+    } catch (_) {
+      // Sin red o timeout: no se validó nada; sin sesión en memoria solo
+      // queda pedir el login (sin aviso de "vencida").
+      _setStatus(AuthStatus.signedOut);
+      return;
+    }
+    await _persistSessionSnapshot();
+    try {
+      await _loadProfile();
+    } catch (_) {
       _profile = null;
     }
     _setStatus(AuthStatus.signedIn);
@@ -218,6 +288,9 @@ class AuthProvider extends ChangeNotifier {
 
   /// Cierra la sesión. La app vuelve al login vía `onAuthStateChange`.
   Future<void> signOut() async {
+    // Cierre manual del usuario: el aviso de "sesión vencida" es solo para
+    // expulsiones automáticas del arranque, no para este cierre.
+    _sessionExpiredNotice = false;
     await _auth.signOut();
     // el evento signedOut también lo limpia, pero por si el stream no
     // llegara (cierre forzado), removemos el snapshot acá.

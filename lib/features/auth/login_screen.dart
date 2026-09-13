@@ -25,6 +25,27 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // Si el arranque no pudo recuperar la sesión (el servidor rechazó el
+    // token), mostramos un aviso breve antes de que el usuario vuelva a
+    // entrar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      if (auth.sessionExpiredNotice) {
+        auth.consumeSessionExpiredNotice();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Tu sesión venció. Inicia sesión de nuevo.'),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
