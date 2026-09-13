@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.2.3",
-    "versionCode":  5,
+    "versionName":  "0.2.4",
+    "versionCode":  6,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Panel \u0027Ver sus emociones\u0027: la pildora de amigos ya no tapa los botones de abajo."
+                  "Copiar emociones de un amigo: ahora podas agregarlas como nuevas a tu lista (copia completa) o reemplazar una tuya. \u0027Saltar\u0027 continua con la siguiente y \u0027Detener\u0027 corta el proceso."
               ],
-    "sizeBytes":  55697273,
-    "sha256":  "aeec1580c520bfa04153bdfdb58e14730da5d3dd22874c54be859c7e8622c85c",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.3/app-release.apk"
+    "sizeBytes":  55713729,
+    "sha256":  "4cd104c1f0957b488d685c66f35e7885cae20b520404c196374e341111658132",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.4/app-release.apk"
 }
