@@ -108,12 +108,18 @@ class _FriendMoodsCopySheetState extends State<_FriendMoodsCopySheet> {
     );
   }
 
+  /// Zona reservada en la base del panel para que la píldora flotante del
+  /// hub de amigos (que vive POR ENCIMA del Navigator, sobre todas las
+  /// rutas y hojas modales) no tape los botones de abajo. Mide ~62px
+  /// (avatar 34 + paddings + margen SafeArea) y dejamos margen extra.
+  static const double _pillReserveHeight = 78;
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, _pillReserveHeight),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
