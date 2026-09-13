@@ -1,13 +1,11 @@
-{
-    "versionName": "0.2.0",
-    "versionCode": 2,
-    "releaseDate": "2026-09-12",
-    "notes": [
-        "Hub de descargas web + chequeo de actualizaciones dentro de la app (manual y automatico 1 vez por dia).",
-        "Detalle por dia: swipe en 3 paginas con rebase, sin freezes.",
-        "Widget del escritorio: sin borde blanco y con aura mas gruesa y contigua."
-    ],
-    "sizeBytes": 55484157,
-    "sha256": "4eb5f5bddeb3764174b90b109df5671909d3ec05a315797504c45b4bfb015494",
-    "apkUrl": "https://github.com/Jottop/Mood-App/releases/download/v0.2.0/app-release.apk"
+﻿{
+    "versionName":  "0.2.1",
+    "versionCode":  3,
+    "releaseDate":  "2026-09-13",
+    "notes":  [
+                  "Detalle por dia: al deslizar ya no se ve la burbuja del dia anterior (la burbuja se recrea por fecha y el rebase espera a que termine el gesto)."
+              ],
+    "sizeBytes":  55484157,
+    "sha256":  "cc4cbeff7fe682d94f1c701f3fb22b74ead6f03e74d3df82f28c7300e5998408",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.1/app-release.apk"
 }

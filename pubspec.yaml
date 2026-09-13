@@ -1,8 +1,7 @@
-name: mood_app
-description: App para registrar y visualizar estados de ánimo a lo largo del día.
+﻿name: mood_app
+description: App para registrar y visualizar estados de Ã¡nimo a lo largo del dÃ­a.
 publish_to: 'none'
-version: 0.2.0+2
-
+version: 0.2.1+3
 environment:
   sdk: '>=3.3.0 <4.0.0'
 
