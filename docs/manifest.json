@@ -1,11 +1,14 @@
 ﻿{
-    "versionName":  "0.2.4",
-    "versionCode":  6,
+    "versionName":  "0.2.5",
+    "versionCode":  7,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Copiar emociones de un amigo: ahora podas agregarlas como nuevas a tu lista (copia completa) o reemplazar una tuya. \u0027Saltar\u0027 continua con la siguiente y \u0027Detener\u0027 corta el proceso."
+                  "Perfil editable: alias, avatar de frutita y colores de tu pildora. Tambien puedes cambiar tu nombre de usuario y tu contrasena desde Ajustes.",
+                  "Pildora de amigos arrastrable: mantenla pulsada para moverla a la izquierda o a la derecha. La posicion se guarda en tu dispositivo.",
+                  "Papelera de emociones: las eliminadas se conservan 7 dias y se pueden restaurar. Al eliminar aparece \u0027Deshacer\u0027.",
+                  "Cerrar sesion ahora pide confirmacion."
               ],
-    "sizeBytes":  55713729,
-    "sha256":  "4cd104c1f0957b488d685c66f35e7885cae20b520404c196374e341111658132",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.4/app-release.apk"
+    "sizeBytes":  55992769,
+    "sha256":  "f67047937ce97d9bc0bd61976145e9683e961842572fde260127e80b64e9677e",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.5/app-release.apk"
 }
