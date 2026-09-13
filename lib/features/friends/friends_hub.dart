@@ -123,7 +123,11 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
 
     final cx = fx + w / 2;
     final mid = screen.width / 2;
-    final centered = (cx - mid).abs() < w;
+    // Zona "centrada" chica (~10% de la pantalla): si se suelta lejos del
+    // centro se ancla al margen izquierdo o derecho. Antes se comparaba
+    // contra el ancho completo de la píldora y casi nunca salía de esa zona
+    // en un teléfono, así que el arrastre "volvía" siempre al centro.
+    final centered = (cx - mid).abs() < screen.width * 0.1;
 
     _PillEdge newEdge;
     var newFraction = _fraction;

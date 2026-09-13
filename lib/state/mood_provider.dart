@@ -127,6 +127,17 @@ class MoodProvider extends ChangeNotifier {
     return load();
   }
 
+  /// Vuelve a leer los registros desde la nube (pull-to-refresh) sin tocar la
+  /// pantalla de error: si falla, conserva los datos actuales en memoria.
+  Future<void> refresh() async {
+    try {
+      _setEntries(await _repository.loadAll());
+    } catch (_) {
+      // Sin red: se conserva lo que ya hay en memoria.
+    }
+    notifyListeners();
+  }
+
   /// Fuerza la escritura pendiente (si la hay). Lo invoca el ciclo de
   /// vida de la app al pausarla/destruirla, para no perder el último toque.
   Future<void> flushNow() => _persistence.flushNow();

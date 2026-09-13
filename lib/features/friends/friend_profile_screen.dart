@@ -11,7 +11,6 @@ import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../home/widgets/day_entry_list.dart';
 import '../home/widgets/mood_bubble.dart';
-import '../home/widgets/mood_sphere_visual.dart';
 import '../history/calendar_screen.dart';
 import '../history/mood_summary.dart';
 import 'friend_moods_copy_sheet.dart';
@@ -41,20 +40,31 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final view = await fetchFriendMoodViewData(widget.friend.id);
       if (!mounted) return;
       setState(() {
         _view = view;
         _loading = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
+      // En un refresco silencioso con datos ya cargados no se rompe la
+      // pantalla: se conserva lo mostrado y solo se avisa con un snackbar.
+      if (silent && _view != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo actualizar. Revisa tu conexión.')),
+        );
+        return;
+      }
       setState(() {
         _error = 'No se pudo cargar la información de $_displayName. Revisa la conexión e inténtalo de nuevo.';
         _loading = false;
@@ -171,9 +181,13 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         ? '$_displayName aún no registró cómo se siente hoy'
         : '$_displayName ahora se siente ${view.byId(todayAsc.last.moodId).label.toLowerCase()}';
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
-      children: [
+    return RefreshIndicator(
+      onRefresh: () => _load(silent: true),
+      color: AppColors.ink,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
+        children: [
         const Center(
           child: Text(
             'El resumen de hoy',
@@ -181,9 +195,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Misma burbuja que el Home (flotación + auras), pero con los
-        // datos del amigo. El avatar del amigo se asoma en la esquina
-        // superior derecha de la burbuja (sin estar pegado a ella).
+        // Misma burbuja que el Home (flotación + auras), pero con los datos
+        // del amigo. El avatar del amigo queda en la esquina superior
+        // derecha del bloque, sin pegarse a la burbuja.
         Center(
           child: Stack(
             alignment: Alignment.topRight,
@@ -194,33 +208,14 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                 size: 200,
                 floatAmplitude: 12,
               ),
-              Transform.translate(
-                // El disco de la burbuja queda corrido hacia abajo por el
-                // espacio reservado del aura; el badge va justo sobre su
-                // borde superior derecho.
-                offset: Offset(-12, MoodSphereVisual.auraReservedSpace(200) + 8),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.ink.withValues(alpha: 0.18),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: AvatarBadge(
-                    size: 44,
-                    background: widget.friend.pillBg,
-                    foreground: widget.friend.pillFg,
-                    avatar: widget.friend.avatar,
-                    initial: widget.friend.displayInitial,
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: FramedAvatar(
+                  size: 56,
+                  background: widget.friend.pillBg,
+                  foreground: widget.friend.pillFg,
+                  avatar: widget.friend.avatar,
+                  initial: widget.friend.displayInitial,
                 ),
               ),
             ],
@@ -312,7 +307,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
           readOnly: true,
           emptyMessage: 'Aún no registró emociones hoy.',
         ),
-      ],
+        ],
+      ),
     );
   }
 }

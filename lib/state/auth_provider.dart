@@ -136,6 +136,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Re-lee mi perfil desde la nube (pull-to-refresh). Si falla, la UI sigue
+  /// con el perfil en memoria sin mostrar error.
+  Future<void> refreshProfile() async {
+    try {
+      await _loadProfile();
+    } catch (_) {
+      // Sin red: se conserva el perfil actual.
+    }
+  }
+
   /// Normaliza el username a su forma canónica (minúsculas, sin espacios).
   static String normalizeUsername(String raw) => raw.trim().toLowerCase();
 

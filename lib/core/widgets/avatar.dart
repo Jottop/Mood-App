@@ -4,18 +4,31 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-const _kFruitCount = 5;
+/// Cantidad total de avatares de fruta/verdura disponibles (`fruit_0`..`fruit_9`).
+const int fruitAvatarCount = 10;
 
-/// Nombres de las frutas disponibles para el avatar, en orden de índice.
-const _kFruitNames = ['Fresa', 'Banana', 'Sandía', 'Manzana', 'Naranja'];
+/// Nombres de los avatares disponibles, en orden de índice.
+const _kFruitNames = [
+  'Fresa',
+  'Banana',
+  'Sandía',
+  'Manzana',
+  'Naranja',
+  'Durazno',
+  'Limón',
+  'Zanahoria',
+  'Mango',
+  'Berenjena',
+];
 
-/// Clave de avatar para cada índice (`fruit_0`..`fruit_4`).
+/// Clave de avatar para cada índice (`fruit_0`..`fruit_9`).
 String fruitAvatarKey(int index) => 'fruit_$index';
 
-/// Nombre visible de la fruta con índice [index].
-String fruitAvatarName(int index) => index >= 0 && index < _kFruitCount
-    ? _kFruitNames[index]
-    : 'Fresa';
+/// Nombre visible del avatar con índice [index].
+String fruitAvatarName(int index) =>
+    index >= 0 && index < fruitAvatarCount && index < _kFruitNames.length
+        ? _kFruitNames[index]
+        : 'Fresa';
 
 /// Avatar circular que se usa en la píldora del hub de amigos, en el perfil
 /// de un amigo (esquina de la burbuja) y como selector de perfil.
@@ -28,12 +41,16 @@ class AvatarBadge extends StatelessWidget {
   final Color background;
   final Color foreground;
 
-  /// Clave de avatar: `fruit_0`..`fruit_4` o null (inicial).
+  /// Clave de avatar: `fruit_0`..`fruit_9` o null (inicial).
   final String? avatar;
   final String initial;
   final bool selected;
   final VoidCallback? onTap;
   final String? tooltip;
+
+  /// Ancho del anillo de selección (se dibuja POR FUERA del círculo, sin
+  /// tapar la imagen).
+  final double ringWidth;
 
   const AvatarBadge({
     super.key,
@@ -45,33 +62,48 @@ class AvatarBadge extends StatelessWidget {
     this.selected = false,
     this.onTap,
     this.tooltip,
+    this.ringWidth = 2.0,
   });
 
   @override
   Widget build(BuildContext context) {
     final fruitIndex = avatar == null ? null : _fruitIndexOf(avatar!);
-    Widget body;
+    final Widget body;
     if (fruitIndex == null) {
-      body = Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: background,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? AppColors.ink : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Text(
-          initial,
-          style: TextStyle(
-            fontSize: size * 0.42,
-            fontWeight: FontWeight.w800,
-            color: foreground,
-            decoration: TextDecoration.none,
-          ),
+      body = SizedBox.square(
+        dimension: size,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    fontSize: size * 0.42,
+                    fontWeight: FontWeight.w800,
+                    color: foreground,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
+            // El anillo de selección va por fuera del círculo (trazo con el
+            // centro sobre el borde exterior), nunca sobre la imagen.
+            if (selected)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _SelectionRingPainter(
+                      color: AppColors.ink,
+                      stroke: ringWidth,
+                      size: size,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     } else {
@@ -91,19 +123,20 @@ class AvatarBadge extends StatelessWidget {
                 child: FruitAvatar(fruitIndex: fruitIndex, size: size),
               ),
             ),
-            // El anillo de selección se pinta ENCIMA de la fruta (si no, el
-            // clip del círculo lo taparía).
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? AppColors.ink : Colors.transparent,
-                    width: 2,
+            // Igual que en modo inicial: el anillo se dibuja por fuera del
+            // círculo, sin recortar ni tapar la fruta.
+            if (selected)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _SelectionRingPainter(
+                      color: AppColors.ink,
+                      stroke: ringWidth,
+                      size: size,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       );
@@ -121,8 +154,91 @@ class AvatarBadge extends StatelessWidget {
   }
 
   static int? _fruitIndexOf(String key) {
-    final match = RegExp(r'^fruit_([0-4])$').firstMatch(key);
+    final match = RegExp(r'^fruit_([0-9])$').firstMatch(key);
     return match == null ? null : int.parse(match.group(1)!);
+  }
+}
+
+/// Pinta el anillo de selección como un trazo centrado sobre el borde
+/// EXTERIOR del círculo del avatar (`radius = size/2 + stroke/2`), de modo
+/// que nunca tapa la imagen.
+class _SelectionRingPainter extends CustomPainter {
+  final Color color;
+  final double stroke;
+  final double size;
+
+  _SelectionRingPainter({required this.color, required this.stroke, required this.size});
+
+  @override
+  void paint(Canvas canvas, Size _) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 + stroke / 2,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SelectionRingPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.stroke != stroke ||
+      oldDelegate.size != size;
+}
+
+/// Avatar enmarcado para las esquinas de las pantallas (debajo de la burbuja
+/// del Home y en el perfil de un amigo): un anillo blanco con sombra suave
+/// que lo destaca del fondo sin pegarse a la burbuja.
+class FramedAvatar extends StatelessWidget {
+  final double size;
+  final Color background;
+  final Color foreground;
+
+  /// Clave de avatar: `fruit_0`..`fruit_9` o null (inicial).
+  final String? avatar;
+  final String initial;
+  final VoidCallback? onTap;
+  final String? tooltip;
+
+  const FramedAvatar({
+    super.key,
+    this.size = 56,
+    required this.background,
+    required this.foreground,
+    this.avatar,
+    required this.initial,
+    this.onTap,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: AvatarBadge(
+        size: size,
+        background: background,
+        foreground: foreground,
+        avatar: avatar,
+        initial: initial,
+        onTap: onTap,
+        tooltip: tooltip,
+      ),
+    );
   }
 }
 
@@ -203,7 +319,7 @@ class _FruitPainter extends CustomPainter {
     final u = w * 0.5;
     canvas.scale(u);
 
-    switch (fruitIndex % _kFruitCount) {
+    switch (fruitIndex % fruitAvatarCount) {
       case 0:
         _paintStrawberry(canvas);
       case 1:
@@ -212,8 +328,18 @@ class _FruitPainter extends CustomPainter {
         _paintWatermelon(canvas);
       case 3:
         _paintApple(canvas);
-      default:
+      case 4:
         _paintOrangeSlice(canvas);
+      case 5:
+        _paintPeach(canvas);
+      case 6:
+        _paintLemon(canvas);
+      case 7:
+        _paintCarrot(canvas);
+      case 8:
+        _paintMango(canvas);
+      default:
+        _paintEggplant(canvas);
     }
     canvas.restore();
   }
@@ -319,52 +445,268 @@ class _FruitPainter extends CustomPainter {
     _paintFace(canvas);
   }
 
-  // ----- Rodaja de sandía -----
+  // ----- Rodaja de sandía (vista en perspectiva) -----
   void _paintWatermelon(Canvas canvas) {
+    // Óvalos concéntricos de la rodaja: cáscara verde, pulpa blanca y carne
+    // rosada. El borde inferior queda recortado por el clip del círculo.
+    const center = Offset(0, -0.18);
+    final rind = Paint()..color = const Color(0xFF2F7D4F);
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: 2.05, height: 1.9),
+      rind,
+    );
+    final pith = Paint()..color = const Color(0xFFEAF3E0);
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: 1.62, height: 1.5),
+      pith,
+    );
     final flesh = Paint()..color = const Color(0xFFF26E7E);
-    canvas.drawCircle(const Offset(0, -0.28), 0.95, flesh);
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: 1.32, height: 1.22),
+      flesh,
+    );
 
-    // Gajos más claros.
+    // Gajos: líneas blancas que van del centro al borde de la carne.
     final wedge = Paint()
-      ..color = const Color(0x66FFFFFF)
+      ..color = const Color(0x8AFFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.06;
-    for (var i = -2; i <= 2; i++) {
-      final angle = i * 0.45;
+      ..strokeWidth = 0.055
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 7; i++) {
+      final angle = -math.pi / 2 + (i - 3) * 0.55;
       canvas.drawLine(
-        const Offset(0, -0.28),
-        Offset(math.sin(angle) * 0.9, -0.28 - math.cos(angle) * 0.9),
+        center,
+        center + Offset(math.cos(angle) * 0.62, math.sin(angle) * 0.56),
         wedge,
       );
     }
 
-    // Semillas.
+    // Semillas sobre la cara cortada.
     final seed = Paint()..color = const Color(0xFF3A2A20);
     const seeds = [
-      Offset(-0.38, -0.15),
-      Offset(0.02, 0.05),
-      Offset(0.4, -0.2),
-      Offset(0.0, -0.55),
+      Offset(-0.33, -0.28),
+      Offset(0.34, -0.16),
+      Offset(0.06, -0.06),
+      Offset(-0.18, 0.14),
+      Offset(0.22, 0.18),
     ];
     for (final s in seeds) {
       canvas.drawOval(
-        Rect.fromCenter(center: s, width: 0.09, height: 0.06),
+        Rect.fromCenter(center: s, width: 0.08, height: 0.06),
         seed,
       );
     }
 
-    // Cáscara verde por debajo (asoma por el borde recortado).
-    final rind = Paint()
-      ..color = const Color(0xFF3E8E4E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.16;
-    canvas.drawArc(
-      Rect.fromCenter(center: const Offset(0, -0.28), width: 1.9, height: 1.9),
-      math.pi,
-      math.pi,
-      false,
-      rind,
+    _paintFace(canvas);
+  }
+
+  // ----- Durazno -----
+  void _paintPeach(Canvas canvas) {
+    final base = Paint()..color = const Color(0xFFF9C28B);
+    canvas.drawCircle(const Offset(0, -0.08), 0.85, base);
+    // Rubor rosado en la parte baja.
+    final blush = Paint()..color = const Color(0xFFF6897A);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 0.08), width: 1.02, height: 0.68),
+      blush,
     );
+    // Surco vertical típico del durazno.
+    final crease = Paint()
+      ..color = const Color(0xFFDE8A5C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.055
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, -0.78), const Offset(0, 0.78), crease);
+    // Rabito + hojita.
+    final stem = Paint()
+      ..color = const Color(0xFF7A5230)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.09
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, -0.85), const Offset(0, -1.02), stem);
+    final leaf = Paint()..color = const Color(0xFF4E9B4E);
+    canvas.save();
+    canvas.translate(0.24, -0.95);
+    canvas.rotate(0.5);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 0.18, height: 0.4),
+      leaf,
+    );
+    canvas.restore();
+
+    _paintFace(canvas);
+  }
+
+  // ----- Limón -----
+  void _paintLemon(Canvas canvas) {
+    final yellow = Paint()..color = const Color(0xFFF6E27A);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, -0.05), width: 0.95, height: 1.35),
+      yellow,
+    );
+    // Pezones (bultitos puntiagudos de arriba y abajo; el de abajo asoma por
+    // el clip del círculo).
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, -0.72), width: 0.3, height: 0.24),
+      yellow,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 0.78), width: 0.28, height: 0.22),
+      yellow,
+    );
+    // Motitas de textura de la cáscara.
+    final dimple = Paint()..color = const Color(0xFFE4CB57);
+    const spots = [
+      Offset(-0.28, -0.3),
+      Offset(0.3, -0.05),
+      Offset(-0.12, 0.34),
+      Offset(0.2, 0.4),
+    ];
+    for (final s in spots) {
+      canvas.drawCircle(s, 0.055, dimple);
+    }
+    // Brillo tenue.
+    final shine = Paint()..color = const Color(0x55FFFFFF);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(-0.26, -0.4), width: 0.3, height: 0.2),
+      shine,
+    );
+    // Rabito + hojita.
+    final stem = Paint()
+      ..color = const Color(0xFF7A5230)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.08
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, -0.85), const Offset(0, -1.06), stem);
+    final leaf = Paint()..color = const Color(0xFF4E9B4E);
+    canvas.save();
+    canvas.translate(0.22, -0.98);
+    canvas.rotate(0.55);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 0.18, height: 0.38),
+      leaf,
+    );
+    canvas.restore();
+
+    _paintFace(canvas);
+  }
+
+  // ----- Zanahoria -----
+  void _paintCarrot(Canvas canvas) {
+    // Penacho de hojas (detrás de la zanahoria: el cuerpo tapa sus bases).
+    final darkLeaf = Paint()..color = const Color(0xFF4E9B4E);
+    final lightLeaf = Paint()..color = const Color(0xFF6ABE5E);
+    const tuft = [
+      (-0.24, -0.55, 0.4),
+      (0.0, -0.05, 0.46),
+      (0.24, 0.55, 0.4),
+      (-0.12, -0.3, 0.36),
+      (0.12, 0.3, 0.36),
+    ];
+    for (final (dx, rot, len) in tuft) {
+      canvas.save();
+      canvas.translate(dx, -0.3);
+      canvas.rotate(rot);
+      canvas.drawOval(
+        Rect.fromCenter(center: const Offset(0, -0.2), width: 0.12, height: len),
+        rot.abs() < 0.3 ? lightLeaf : darkLeaf,
+      );
+      canvas.restore();
+    }
+
+    // Cuerpo cónico que baja hasta el borde del clip.
+    final body = Paint()..color = const Color(0xFFF08A24);
+    final path = Path()
+      ..moveTo(-0.34, -0.26)
+      ..cubicTo(-0.38, 0.15, -0.16, 0.78, 0.0, 1.06)
+      ..cubicTo(0.16, 0.78, 0.38, 0.15, 0.34, -0.26)
+      ..cubicTo(0.18, -0.4, -0.18, -0.4, -0.34, -0.26)
+      ..close();
+    canvas.drawPath(path, body);
+
+    // Acanaladuras horizontales típicas.
+    final ridge = Paint()
+      ..color = const Color(0xFFD97415)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.055
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(-0.32, -0.08), const Offset(0.32, -0.08), ridge);
+    canvas.drawLine(const Offset(-0.26, 0.15), const Offset(0.26, 0.15), ridge);
+    canvas.drawLine(const Offset(-0.17, 0.36), const Offset(0.17, 0.36), ridge);
+
+    _paintFace(canvas);
+  }
+
+  // ----- Mango -----
+  void _paintMango(Canvas canvas) {
+    final body = Paint()..color = const Color(0xFFF5B42E);
+    final path = Path()
+      ..moveTo(0.0, -0.8)
+      ..cubicTo(0.42, -0.55, 0.48, 0.05, 0.4, 0.55)
+      ..cubicTo(0.34, 0.88, 0.14, 1.06, 0.0, 1.06)
+      ..cubicTo(-0.14, 1.04, -0.3, 0.82, -0.34, 0.5)
+      ..cubicTo(-0.4, -0.05, -0.28, -0.55, 0.0, -0.8)
+      ..close();
+    canvas.drawPath(path, body);
+    // Rubor rojizo en el costado derecho (recortado al cuerpo).
+    final blush = Paint()..color = const Color(0xFFF2765C);
+    canvas.save();
+    canvas.clipPath(path);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0.24, -0.05), width: 0.7, height: 1.1),
+      blush,
+    );
+    canvas.restore();
+    // Rabito.
+    final stem = Paint()
+      ..color = const Color(0xFF6B4A26)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.08
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, -0.78), const Offset(0.03, -0.98), stem);
+
+    _paintFace(canvas);
+  }
+
+  // ----- Berenjena -----
+  void _paintEggplant(Canvas canvas) {
+    final body = Paint()..color = const Color(0xFF6B46A5);
+    final path = Path()
+      ..moveTo(0.0, -0.55)
+      ..cubicTo(0.42, -0.45, 0.62, 0.02, 0.55, 0.4)
+      ..cubicTo(0.48, 0.74, 0.22, 0.98, 0.0, 1.08)
+      ..cubicTo(-0.22, 0.98, -0.48, 0.74, -0.55, 0.4)
+      ..cubicTo(-0.62, 0.02, -0.42, -0.45, 0.0, -0.55)
+      ..close();
+    canvas.drawPath(path, body);
+    // Sombreado lateral (recortado al cuerpo).
+    final shade = Paint()
+      ..color = const Color(0xFF4C2F7E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.16
+      ..strokeCap = StrokeCap.round;
+    canvas.save();
+    canvas.clipPath(path);
+    canvas.drawArc(
+      Rect.fromCenter(center: const Offset(0.16, 0.08), width: 1.0, height: 1.2),
+      -0.5,
+      1.5,
+      false,
+      shade,
+    );
+    canvas.restore();
+    // Tapa verde del tallo (cáliz) + rabito.
+    final cap = Paint()..color = const Color(0xFF4E9B4E);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, -0.56), width: 0.26, height: 0.18),
+      cap,
+    );
+    final stem = Paint()
+      ..color = const Color(0xFF3D7A3D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.08
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, -0.62), const Offset(0, -0.82), stem);
 
     _paintFace(canvas);
   }

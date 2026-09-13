@@ -316,7 +316,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               : _initialOfProfile(),
           onTap: () => setState(() => _avatar = null),
         ),
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < fruitAvatarCount; i++)
           _AvatarOption(
             avatar: fruitAvatarKey(i),
             label: fruitAvatarName(i),

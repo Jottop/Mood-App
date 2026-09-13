@@ -11,7 +11,7 @@ class Profile {
   final String friendCode;
   final String? alias;
 
-  /// Identificador del avatar frutal: `fruit_0`..`fruit_4`. Null = inicial.
+  /// Identificador del avatar frutal/vegetal: `fruit_0`..`fruit_9`. Null = inicial.
   final String? avatar;
   final Color pillBg;
   final Color pillFg;

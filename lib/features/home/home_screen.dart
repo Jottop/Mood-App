@@ -4,14 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/avatar.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
 import '../../data/app_update.dart';
 import '../../services/date_service.dart';
 import '../../state/auth_provider.dart';
+import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../history/calendar_screen.dart';
 import '../moods/manage_moods_screen.dart';
+import '../profile/edit_profile_screen.dart';
 import '../profile/settings_screen.dart';
 import 'widgets/day_entry_list.dart';
 import 'widgets/mood_bubble.dart';
@@ -145,6 +148,24 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 
+  /// Recarga la app al deslizar hacia abajo (pull-to-refresh): primero sube
+  /// lo pendiente del debounce y luego re-lee registros, catálogo, amigos y
+  /// mi perfil desde la nube.
+  Future<void> _refresh() async {
+    final mood = context.read<MoodProvider>();
+    final catalog = context.read<MoodCatalogProvider>();
+    final friends = context.read<FriendsProvider>();
+    final auth = context.read<AuthProvider>();
+    await mood.flushNow();
+    await catalog.flushNow();
+    await Future.wait([
+      mood.refresh(),
+      catalog.refresh(),
+      friends.refresh(),
+      auth.refreshProfile(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -196,13 +217,49 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? 'Aún no registras cómo te sientes hoy'
                   : 'Ahora te sientes ${catalog.byId(todaysAsc.last.moodId).label.toLowerCase()}';
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
-                children: [
-                  _Header(onCheckUpdates: _checkForUpdates),
-                  const SizedBox(height: 20),
-                  MoodBubble(todayColors: todaysColors, label: bubbleLabel, specialColors: todaysSpecial),
-                  const SizedBox(height: 22),
+              // Mi perfil para el avatar de la esquina de la burbuja.
+              final myProfile = context.watch<AuthProvider>().profile;
+
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                color: AppColors.ink,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
+                  children: [
+                    _Header(onCheckUpdates: _checkForUpdates),
+                    const SizedBox(height: 20),
+                    // La burbuja con mi avatar en la esquina superior
+                    // derecha de su bloque (sin pegarse a la esfera); el
+                    // toque abre la edición de mi perfil.
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        MoodBubble(
+                          todayColors: todaysColors,
+                          label: bubbleLabel,
+                          specialColors: todaysSpecial,
+                        ),
+                        if (myProfile != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, right: 8),
+                            child: FramedAvatar(
+                              size: 56,
+                              background: myProfile.pillBg,
+                              foreground: myProfile.pillFg,
+                              avatar: myProfile.avatar,
+                              initial: myProfile.displayInitial,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const EditProfileScreen(),
+                                ),
+                              ),
+                              tooltip: 'Editar mi perfil',
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                   const _PromptCard(),
                   const SizedBox(height: 22),
                   // Fila sobre la grilla: acceso a la gestión de estados
@@ -282,7 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     date: DateTime.now(),
                     emptyMessage: 'Toca un estado de ánimo arriba para registrar el primero de hoy.',
                   ),
-                ],
+                  ],
+                ),
               );
             },
           ),

@@ -139,6 +139,20 @@ class MoodCatalogProvider extends ChangeNotifier {
     return load();
   }
 
+  /// Vuelve a leer el catálogo desde la nube (pull-to-refresh) sin tocar la
+  /// pantalla de error: si falla, conserva el catálogo actual en memoria.
+  Future<void> refresh() async {
+    try {
+      _moods = (await _repository.loadAll())
+          .map((m) => m.copyWith(emoji: EmojiPack.sanitize(m.emoji)))
+          .toList();
+      _rebuildIndex();
+    } catch (_) {
+      // Sin red: se conserva el catálogo actual.
+    }
+    notifyListeners();
+  }
+
   Future<void> addMood({
     required String label,
     required String emoji,
