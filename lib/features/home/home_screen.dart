@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
+import '../../data/app_update.dart';
 import '../../services/date_service.dart';
 import '../../state/auth_provider.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -14,8 +17,133 @@ import 'widgets/day_entry_list.dart';
 import 'widgets/mood_bubble.dart';
 import 'widgets/mood_picker_grid.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  /// Clave de prefs para recordar el día del último chequeo automático.
+  static const _lastCheckKey = 'last_update_check';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoCheckForUpdates());
+  }
+
+  /// Chequeo silencioso de actualizaciones: una vez por DÍA, sin interrumpir
+  /// (snackbar con acción "Descargar" si hay versión nueva, nada si no).
+  Future<void> _autoCheckForUpdates() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = _dayKey(DateTime.now());
+    if (prefs.getString(_lastCheckKey) == today) return;
+    await prefs.setString(_lastCheckKey, today);
+
+    final update = await const AppUpdateService().fetchLatest();
+    if (!mounted || update == null) return;
+    final installed = await AppUpdateService.installedVersionCode();
+    if (!mounted || update.versionCode <= installed) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Nueva versión v${update.versionName} disponible'),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: 'Descargar',
+          onPressed: () => _launchDownload(update),
+        ),
+      ),
+    );
+  }
+
+  /// Chequeo manual desde el header: dialog con las notas y botón de
+  /// descarga si hay versión nueva, snackbar si estás al día.
+  Future<void> _checkForUpdates() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Buscando actualizaciones…')));
+
+    final update = await const AppUpdateService().fetchLatest();
+    if (!mounted) return;
+    if (update == null) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No se pudo verificar. Revisá tu conexión.')),
+      );
+      return;
+    }
+
+    final installed = await AppUpdateService.installedVersionCode();
+    if (!mounted) return;
+    if (update.versionCode <= installed) {
+      final version = await AppUpdateService.installedVersionName();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Estás al día (v$version).')));
+      return;
+    }
+
+    messenger.hideCurrentSnackBar();
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Nueva versión v${update.versionName}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (update.notes.isNotEmpty) ...[
+                const Text('Novedades:', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                for (final note in update.notes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $note'),
+                  ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                'Descarga ${_formatSize(update.sizeBytes)} — la instalación te la confirma Android.',
+                style: const TextStyle(color: AppColors.inkSoft, fontSize: 12.5),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Ahora no'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _launchDownload(update);
+            },
+            child: const Text('Descargar', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Abre el .apk en el navegador; Chrome descarga y dispara el instalador.
+  void _launchDownload(AppUpdateInfo update) {
+    launchUrl(Uri.parse(update.apkUrl), mode: LaunchMode.externalApplication);
+  }
+
+  String _dayKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  String _formatSize(int bytes) {
+    if (bytes <= 0) return '';
+    final mb = bytes / (1024 * 1024);
+    return '${mb.toStringAsFixed(1)} MB';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +199,7 @@ class HomeScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
                 children: [
-                  const _Header(),
+                  _Header(onCheckUpdates: _checkForUpdates),
                   const SizedBox(height: 20),
                   MoodBubble(todayColors: todaysColors, label: bubbleLabel, specialColors: todaysSpecial),
                   const SizedBox(height: 22),
@@ -165,7 +293,9 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  final VoidCallback onCheckUpdates;
+
+  const _Header({required this.onCheckUpdates});
 
   @override
   Widget build(BuildContext context) {
@@ -187,8 +317,9 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-        // Widget de comparación del escritorio y cierre de sesión. El hub
-        // de amigos ahora vive en la píldora flotante del fondo (Fase 2).
+        // Widget de comparación del escritorio, búsqueda de actualizaciones
+        // por el hub y cierre de sesión. El hub de amigos ahora vive en la
+        // píldora flotante del fondo (Fase 2).
         Row(
           children: [
             IconButton(
@@ -201,6 +332,13 @@ class _Header extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
+            ),
+            IconButton(
+              onPressed: onCheckUpdates,
+              tooltip: 'Buscar actualizaciones',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              icon: const Icon(Icons.system_update_alt_rounded, size: 22, color: AppColors.inkSoft),
             ),
             IconButton(
               onPressed: () => _logout(context),

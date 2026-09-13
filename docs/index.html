@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Tu día · Descargas</title>
+  <style>
+    :root {
+      --bg-top: #fff8ef;
+      --bg-bottom: #f3ecf5;
+      --ink: #2b3a4a;
+      --ink-soft: #8593a2;
+      --card: #ffffff;
+      --line: #eadff0;
+      --accent: #b48bd8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      min-height: 100vh;
+      color: var(--ink);
+      padding: 32px 16px;
+      display: flex; justify-content: center;
+    }
+    main { width: 100%; max-width: 560px; }
+    header { margin-bottom: 24px; }
+    header h1 { font-size: 22px; font-weight: 700; }
+    header p { color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 6px 18px rgba(43, 58, 74, 0.06);
+    }
+    .card .pill {
+      display: inline-block;
+      background: #f0e7f7;
+      color: #7a5aa0;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 999px;
+      padding: 4px 12px;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 17px; margin-bottom: 6px; }
+    .meta { color: var(--ink-soft); font-size: 12.5px; margin-bottom: 14px; }
+    .notes { margin-bottom: 18px; }
+    .notes li {
+      list-style: none;
+      padding: 7px 0;
+      border-top: 1px solid #f4eef7;
+      font-size: 14px;
+    }
+    .notes li::before { content: "•"; color: var(--accent); font-weight: 700; margin-right: 8px; }
+    .empty { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 18px; }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      display: inline-block;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 22px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .size { color: var(--ink-soft); font-size: 12.5px; }
+    .sha { margin-top: 16px; font-size: 11px; color: #a9b4c0; word-break: break-all; }
+    footer { margin-top: 26px; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Tu día</h1>
+    <p>Centro de descargas de la app. Este hub también lo usa la app para
+       avisarte cuando hay una versión nueva.</p>
+  </header>
+
+  <section class="card">
+    <span class="pill" id="versionPill">Cargando…</span>
+    <h2 id="title">Buscando la última versión…</h2>
+    <div class="meta" id="meta"></div>
+    <ul class="notes" id="notes"></ul>
+    <div class="empty" id="empty" hidden>Sin notas de esta versión.</div>
+    <div class="actions">
+      <button class="btn" id="downloadBtn" disabled onclick="download()">
+        Descargar
+      </button>
+      <span class="size" id="size"></span>
+    </div>
+    <div class="sha" id="sha"></div>
+  </section>
+
+  <footer>
+    El archivo es un APK de Android: descargalo desde el celular y Android te
+    pedirá confirmar la instalación. Por ser una app fuera de la Play Store,
+    quizás debas permitir "instalar apps desconocidas" para el navegador.
+  </footer>
+</main>
+<script>
+  let latest = null;
+
+  function fmtSize(bytes) {
+    if (!bytes) return "";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function fmtFecha(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const dias = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+    return dias[d.getDay()] + " " + d.getDate() + " de " + meses[d.getMonth()] + " de " + d.getFullYear();
+  }
+
+  async function load() {
+    try {
+      const res = await fetch("./manifest.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      latest = await res.json();
+    } catch (_) {
+      document.getElementById("title").textContent = "No se pudo leer el manifiesto.";
+      document.getElementById("versionPill").textContent = "Error";
+      return;
+    }
+    document.getElementById("versionPill").textContent = "v" + latest.versionName;
+    document.getElementById("title").textContent = "Última versión publicada";
+    document.getElementById("meta").textContent = "Publicada el " + fmtFecha(latest.releaseDate) + " · " +
+      (latest.apkUrl ? "firmada con la clave de desarrollo" : "");
+    const notes = latest.notes || [];
+    const list = document.getElementById("notes");
+    list.textContent = "";
+    for (const n of notes) {
+      const li = document.createElement("li");
+      li.textContent = n;
+      list.appendChild(li);
+    }
+    document.getElementById("empty").hidden = notes.length > 0;
+    document.getElementById("size").textContent = fmtSize(latest.sizeBytes);
+    if (latest.sha256) {
+      document.getElementById("sha").textContent = "SHA-256: " + latest.sha256;
+    }
+    const btn = document.getElementById("downloadBtn");
+    btn.disabled = !latest.apkUrl;
+    btn.textContent = "Descargar v" + latest.versionName;
+  }
+
+  function download() {
+    if (latest && latest.apkUrl) window.location.href = latest.apkUrl;
+  }
+
+  load();
+</script>
+</body>
+</html>

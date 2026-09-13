@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Red (Supabase: auth, datos, amigos) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Abrir la descarga de actualizaciones en el navegador (hub). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
     <application
         android:label="CamiMood"
         android:name="${applicationName}"
