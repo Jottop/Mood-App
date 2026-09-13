@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.2.9",
-    "versionCode":  11,
+    "versionName":  "0.3.0",
+    "versionCode":  12,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Nuevo icono del launcher con la imagen elegida, incluido el icono adaptativo para Android 8+"
+                  "Splash de arranque en crema (color del logo) e icono centrado en la pantalla de carga"
               ],
-    "sizeBytes":  56525666,
-    "sha256":  "76c88b19bb20f69195c9b1ab40611727c1e3f80610beeb49a30d50ab6ef29b84",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.9/app-release.apk"
+    "sizeBytes":  57523962,
+    "sha256":  "8e9bd999e9b7941f64e0e8c79ed5da3e12e8ccd2969360dab11e7fd3b81fd326",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.3.0/app-release.apk"
 }
