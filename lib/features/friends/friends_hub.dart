@@ -19,10 +19,11 @@ enum _PillEdge { center, left, right }
 /// el botón "+". Se oculta mientras el teclado está abierto para no tapar
 /// los campos de texto.
 ///
-/// La píldora es arrastrable (mantener presionado y mover): al soltarla se
-/// adhiere al margen izquierdo o derecho (con altura libre) o vuelve al
-/// centro inferior si se suelta centrada. La posición se guarda solo en el
-/// dispositivo.
+/// La píldora es arrastrable (mantener presionado y mover): mientras se
+/// arrastra ROTA EN VIVO —vertical si te acercas a un costado, horizontal si
+/// estás centrado— y al soltarla se adhiere al margen izquierdo o derecho
+/// (vertical, con altura libre) o vuelve al centro inferior (horizontal) si
+/// se suelta centrada. La posición se guarda solo en el dispositivo.
 class FriendsHubOverlay extends StatefulWidget {
   final GlobalKey<NavigatorState> navigator;
   final Widget child;
@@ -38,13 +39,25 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
   static const _vInset = 10.0;
   static const _storageKey = 'friends_pill_position';
 
+  // Estimación de tamaño vertical (hasta que se mide la píldora real).
+  static const _vWidth = 52.0;
+
   final _pillKey = GlobalKey();
 
   _PillEdge _edge = _PillEdge.center;
   double _fraction = 0;
   Offset _drag = Offset.zero;
   bool _dragging = false;
-  Size _pillSize = Size.zero;
+  // Tamaño real medido POR ORIENTACIÓN: la píldora rota en vivo según el
+  // arrastre (vertical sobre un costado, horizontal centrada) y cada forma
+  // tiene sus propias dimensiones.
+  Size _hPillSize = Size.zero;
+  Size _vPillSize = Size.zero;
+  // Orientación mostrada MOMENTÁNEAMENTE durante el arrastre. Con histéresis:
+  // una vez vertical solo vuelve a horizontal al pasar por la zona céntrica,
+  // y una vez horizontal solo rota al acercarse bien a un borde. Así el
+  // cambio de ancho al rotar no rebota el umbral en bucle.
+  bool _previewVertical = false;
 
   @override
   void initState() {
@@ -52,6 +65,10 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
     _loadPosition();
   }
+
+  /// Orientación vigente: la del arrastre si estás moviendo, la del anclaje
+  /// guardado si estás quieto.
+  bool get _vertical => _dragging ? _previewVertical : _edge != _PillEdge.center;
 
   /// Recupera la posición guardada en este dispositivo.
   Future<void> _loadPosition() async {
@@ -83,14 +100,75 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
     await prefs.setString(_storageKey, value);
   }
 
-  /// Mide la píldora real para posicionarla con precisión (se ejecuta todos
-  /// los frames; el tamaño apenas cambia y el guardado es barato).
+  /// Guarda el tamaño medido de la píldora EN SU ORIENTACIÓN ACTUAL (se
+  /// ejecuta todos los frames; el tamaño apenas cambia y el guardado es
+  /// barato).
   void _measurePill() {
     final box = _pillKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final size = box.size;
-    if (size != _pillSize && mounted) {
-      setState(() => _pillSize = size);
+    final target = _vertical ? _vPillSize : _hPillSize;
+    if (size != target && mounted) {
+      setState(() {
+        if (_vertical) {
+          _vPillSize = size;
+        } else {
+          _hPillSize = size;
+        }
+      });
+    }
+  }
+
+  /// Dimensiones de la orientación pedida: la medida real si existe, si no,
+  /// la estimación (evita usar el tamaño de la otra orientación al rotar).
+  Size _sizeFor(bool vertical) {
+    final s = vertical ? _vPillSize : _hPillSize;
+    if (s.width > 0 && s.height > 0) return s;
+    if (vertical) {
+      return Size(_vWidth, _estimatedVerticalHeight());
+    }
+    return const Size(240, 54);
+  }
+
+  /// Alto aproximado de la píldora vertical: círculos (me + amigos + chip +N
+  /// + botón "+"), los separadores entre ellos y el padding del contenedor.
+  double _estimatedVerticalHeight() {
+    final count = context.read<FriendsProvider>().friends.length;
+    final visible = math.min(count, FriendsHubPill.maxFriends);
+    final items = 1 + visible + (count > FriendsHubPill.maxFriends ? 1 : 0) + 1;
+    final gaps = math.max(0, visible - 1) + (count > FriendsHubPill.maxFriends ? 1 : 0) + 1;
+    return 24 + items * 34.0 + gaps * 7.0 + 19.0;
+  }
+
+  /// Orientación que se MANTENDRÁ (histéresis) según la posición horizontal
+  /// al arrastrar el dedo. `cx` es el centro X de la píldora.
+  bool _nextPreviewVertical(double cx, double screenW) {
+    final mid = screenW / 2;
+    final c = cx / screenW;
+    final inCenter = (cx - mid).abs() < screenW * 0.14;
+    if (_previewVertical) return !inCenter;
+    return c <= 0.28 || c >= 0.72;
+  }
+
+  /// Actualiza el arrastre y en el mismo pase decide si la píldora debe
+  /// verse vertical (costados) u horizontal (resto).
+  void _onDragMove(
+      Size screen, double topInset, double bottomInset, double bandTop, Offset newDrag) {
+    final s = _sizeFor(_previewVertical);
+    final w = s.width;
+    final h = s.height;
+    final bandHeight =
+        math.max(0.0, screen.height - topInset - bottomInset - _vInset * 2 - h);
+    final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+    final maxLeft = math.max(_hInset, screen.width - w - _hInset);
+    final left = (base.dx + newDrag.dx).clamp(_hInset, maxLeft);
+    final cx = left + w / 2;
+    final nextVertical = _nextPreviewVertical(cx, screen.width);
+    if (nextVertical != _previewVertical || newDrag != _drag) {
+      setState(() {
+        _drag = newDrag;
+        _previewVertical = nextVertical;
+      });
     }
   }
 
@@ -110,7 +188,8 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
   }
 
   /// Al soltar el arrastre: recalcula el margen (izquierda/derecha o centro
-  /// inferior) y la altura vertical, y persiste la posición.
+  /// inferior), la orientación (vertical en el costado, horizontal al centro)
+  /// y la altura vertical, y persiste la posición.
   void _releaseDrag(
       Size screen, double topInset, double bottomInset, double bandTop,
       double bandHeight, double w, double h) {
@@ -135,8 +214,13 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       newEdge = _PillEdge.center;
     } else {
       newEdge = cx < mid ? _PillEdge.left : _PillEdge.right;
+      // La fracción se mide contra la banda de la ORIENTACIÓN DESTINO
+      // (vertical): así al rotar al soltar la píldora no salta de lugar.
+      final targetH = _sizeFor(true).height;
+      final targetBand = math.max(
+          0.0, screen.height - topInset - bottomInset - _vInset * 2 - targetH);
       newFraction =
-          bandHeight <= 0 ? 0.0 : ((fy - bandTop) / bandHeight).clamp(0.0, 1.0);
+          targetBand <= 0 ? 0.0 : ((fy - bandTop) / targetBand).clamp(0.0, 1.0);
     }
 
     setState(() {
@@ -144,6 +228,7 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       _drag = Offset.zero;
       _edge = newEdge;
       _fraction = newFraction;
+      _previewVertical = newEdge != _PillEdge.center;
     });
     _savePosition();
   }
@@ -164,8 +249,10 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       final screen = constraints.biggest;
       final topInset = MediaQuery.paddingOf(context).top;
       final bottomInset = MediaQuery.paddingOf(context).bottom;
-      final w = _pillSize.width > 0 ? _pillSize.width : 240.0;
-      final h = _pillSize.height > 0 ? _pillSize.height : 54.0;
+      final vertical = _vertical;
+      final s = _sizeFor(vertical);
+      final w = s.width;
+      final h = s.height;
       final bandTop = topInset + _vInset;
       final bandHeight = math.max(
           0.0, screen.height - topInset - bottomInset - _vInset * 2 - h);
@@ -182,14 +269,22 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
         textDirection: TextDirection.ltr,
         children: [
           Positioned.fill(child: widget.child),
-          Positioned(
+          // AnimatedPositioned arranca en cero mientras arrastras (sigue el
+          // dedo) y hace un pequeño "dock" animado al soltar en un borde o
+          // volver al centro.
+          AnimatedPositioned(
+            duration: _dragging ? Duration.zero : const Duration(milliseconds: 240),
+            curve: Curves.easeOut,
             left: left,
             top: top,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onLongPressStart: (_) => setState(() => _dragging = true),
-              onLongPressMoveUpdate: (details) =>
-                  setState(() => _drag = details.offsetFromOrigin),
+              onLongPressStart: (_) => setState(() {
+                _dragging = true;
+                _previewVertical = _edge != _PillEdge.center;
+              }),
+              onLongPressMoveUpdate: (details) => _onDragMove(
+                  screen, topInset, bottomInset, bandTop, details.offsetFromOrigin),
               onLongPressEnd: (_) =>
                   _releaseDrag(screen, topInset, bottomInset, bandTop, bandHeight, w, h),
               onLongPressCancel: () => setState(() {
@@ -198,7 +293,11 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
               }),
               child: Transform.scale(
                 scale: _dragging ? 1.04 : 1.0,
-                child: FriendsHubPill(key: _pillKey, navigator: widget.navigator),
+                child: FriendsHubPill(
+                  key: _pillKey,
+                  navigator: widget.navigator,
+                  vertical: vertical,
+                ),
               ),
             ),
           ),
@@ -209,13 +308,20 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
 }
 
 /// La píldora flotante: mi avatar, los amigos (hasta un tope) y el botón
-/// "+" para copiar el código, agregar por código o quitar amigos.
+/// "+" para copiar el código, agregar por código o quitar amigos. En
+/// [vertical] apila el contenido en una columna (se usa al anclarla a un
+/// costado de la pantalla).
 class FriendsHubPill extends StatelessWidget {
   static const maxFriends = 4;
 
   final GlobalKey<NavigatorState> navigator;
+  final bool vertical;
 
-  const FriendsHubPill({super.key, required this.navigator});
+  const FriendsHubPill({
+    super.key,
+    required this.navigator,
+    this.vertical = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -229,8 +335,65 @@ class FriendsHubPill extends StatelessWidget {
     // En el Home (sin perfil de amigo a la vista) se remarca mi icono.
     final isMeSelected = selectedProfileId == null;
 
+    // Espaciado en el eje cruzado (9 alrededor del separador, 7 entre el
+    // resto de círculos) y el separador transpuesto según la orientación.
+    Widget gap(double v) => vertical
+        ? SizedBox(height: v)
+        : SizedBox(width: v);
+
+    final children = <Widget>[
+      AvatarBadge(
+        background: myProfile?.pillBg ?? AppColors.cream,
+        foreground: myProfile?.pillFg ?? AppColors.creamInk,
+        avatar: myProfile?.avatar,
+        initial: myProfile?.displayInitial ?? '?',
+        selected: isMeSelected,
+        onTap: () {
+          // La selección se ajusta DESDE el gesto (antes de navegar), no
+          // desde el ciclo de vida del route: notificar dentro de
+          // initState/dispose de la pantalla congela la app porque la
+          // píldora está por encima del Navigator y se reconstruye en el
+          // mismo pase de build.
+          friendsProvider.selectProfile(null);
+          _goHome();
+        },
+        tooltip: 'Ir al inicio',
+      ),
+      gap(9),
+      // Separador sutil entre mi icono y el resto de la píldora.
+      Container(
+        width: vertical ? 22 : 1,
+        height: vertical ? 1 : 22,
+        color: AppColors.ink.withValues(alpha: 0.14),
+      ),
+      gap(9),
+      for (final friend in visibleFriends) ...[
+        AvatarBadge(
+          background: friend.pillBg,
+          foreground: friend.pillFg,
+          avatar: friend.avatar,
+          initial: friend.displayInitial,
+          selected: selectedProfileId == friend.id,
+          onTap: () {
+            friendsProvider.selectProfile(friend.id);
+            _openFriend(friend);
+          },
+          tooltip: friend.displayName,
+        ),
+        if (friend != visibleFriends.last) gap(7),
+      ],
+      if (overflow > 0) ...[
+        gap(7),
+        _OverflowChip(navigator: navigator, count: overflow),
+      ],
+      gap(7),
+      _AddButton(navigator: navigator),
+    ];
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: vertical
+          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 12)
+          : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(999),
@@ -242,57 +405,9 @@ class FriendsHubPill extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AvatarBadge(
-            background: myProfile?.pillBg ?? AppColors.cream,
-            foreground: myProfile?.pillFg ?? AppColors.creamInk,
-            avatar: myProfile?.avatar,
-            initial: myProfile?.displayInitial ?? '?',
-            selected: isMeSelected,
-            onTap: () {
-              // La selección se ajusta DESDE el gesto (antes de navegar), no
-              // desde el ciclo de vida del route: notificar dentro de
-              // initState/dispose de la pantalla congela la app porque la
-              // píldora está por encima del Navigator y se reconstruye en el
-              // mismo pase de build.
-              friendsProvider.selectProfile(null);
-              _goHome();
-            },
-            tooltip: 'Ir al inicio',
-          ),
-          const SizedBox(width: 9),
-          // Separador sutil entre mi icono y el resto de la píldora.
-          Container(
-            width: 1,
-            height: 22,
-            color: AppColors.ink.withValues(alpha: 0.14),
-          ),
-          const SizedBox(width: 9),
-          for (final friend in visibleFriends) ...[
-            AvatarBadge(
-              background: friend.pillBg,
-              foreground: friend.pillFg,
-              avatar: friend.avatar,
-              initial: friend.displayInitial,
-              selected: selectedProfileId == friend.id,
-              onTap: () {
-                friendsProvider.selectProfile(friend.id);
-                _openFriend(friend);
-              },
-              tooltip: friend.displayName,
-            ),
-            if (friend != visibleFriends.last) const SizedBox(width: 7),
-          ],
-          if (overflow > 0) ...[
-            const SizedBox(width: 7),
-            _OverflowChip(navigator: navigator, count: overflow),
-          ],
-          const SizedBox(width: 7),
-          _AddButton(navigator: navigator),
-        ],
-      ),
+      child: vertical
+          ? Column(mainAxisSize: MainAxisSize.min, children: children)
+          : Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 

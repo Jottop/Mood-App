@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/avatar.dart';
@@ -57,96 +56,14 @@ class _HomeScreenState extends State<HomeScreen> {
         duration: const Duration(seconds: 8),
         action: SnackBarAction(
           label: 'Descargar',
-          onPressed: () => _launchDownload(update),
+          onPressed: () => launchAppDownload(update),
         ),
       ),
     );
-  }
-
-  /// Chequeo manual desde el header: dialog con las notas y botón de
-  /// descarga si hay versión nueva, snackbar si estás al día.
-  Future<void> _checkForUpdates() async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Buscando actualizaciones…')));
-
-    final update = await const AppUpdateService().fetchLatest();
-    if (!mounted) return;
-    if (update == null) {
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('No se pudo verificar. Revisá tu conexión.')),
-      );
-      return;
-    }
-
-    final installed = await AppUpdateService.installedVersionCode();
-    if (!mounted) return;
-    if (update.versionCode <= installed) {
-      final version = await AppUpdateService.installedVersionName();
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('Estás al día (v$version).')));
-      return;
-    }
-
-    messenger.hideCurrentSnackBar();
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Nueva versión v${update.versionName}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (update.notes.isNotEmpty) ...[
-                const Text('Novedades:', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                for (final note in update.notes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('• $note'),
-                  ),
-                const SizedBox(height: 8),
-              ],
-              Text(
-                'Descarga ${_formatSize(update.sizeBytes)} — la instalación te la confirma Android.',
-                style: const TextStyle(color: AppColors.inkSoft, fontSize: 12.5),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Ahora no'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _launchDownload(update);
-            },
-            child: const Text('Descargar', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Abre el .apk en el navegador; Chrome descarga y dispara el instalador.
-  void _launchDownload(AppUpdateInfo update) {
-    launchUrl(Uri.parse(update.apkUrl), mode: LaunchMode.externalApplication);
   }
 
   String _dayKey(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-  String _formatSize(int bytes) {
-    if (bytes <= 0) return '';
-    final mb = bytes / (1024 * 1024);
-    return '${mb.toStringAsFixed(1)} MB';
-  }
 
   /// Recarga la app al deslizar hacia abajo (pull-to-refresh): primero sube
   /// lo pendiente del debounce y luego re-lee registros, catálogo, amigos y
@@ -227,24 +144,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
                   children: [
-                    _Header(onCheckUpdates: _checkForUpdates),
+                    const _Header(),
                     const SizedBox(height: 20),
                     // La burbuja con mi avatar en la esquina superior
                     // derecha de su bloque (sin pegarse a la esfera); el
-                    // toque abre la edición de mi perfil.
+                    // toque abre la edición de mi perfil. La burbuja va en
+                    // un SizedBox a ancho completo para que la columna siga
+                    // centrada (dentro del Stack con alignment topRight la
+                    // columna tomaba su ancho natural y se corría a la
+                    // derecha).
                     Stack(
                       alignment: Alignment.topRight,
                       children: [
-                        MoodBubble(
-                          todayColors: todaysColors,
-                          label: bubbleLabel,
-                          specialColors: todaysSpecial,
+                        SizedBox(
+                          width: double.infinity,
+                          child: MoodBubble(
+                            todayColors: todaysColors,
+                            label: bubbleLabel,
+                            specialColors: todaysSpecial,
+                          ),
                         ),
                         if (myProfile != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 8, right: 8),
                             child: FramedAvatar(
-                              size: 56,
+                              size: 64,
                               background: myProfile.pillBg,
                               foreground: myProfile.pillFg,
                               avatar: myProfile.avatar,
@@ -262,8 +186,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                   const _PromptCard(),
                   const SizedBox(height: 22),
-                  // Fila sobre la grilla: acceso a la gestión de estados
-                  // (ahora todo el título es el botón) y reinicio del día.
+                  // Fila sobre la grilla: acceso a la gestión de estados (ahora todo el
+                  // título es el botón), el historial (calendario) y el
+                  // reinicio del día, todo al mismo nivel.
                   Padding(
                     padding: const EdgeInsets.only(left: 2, right: 2, bottom: 10),
                     child: Row(
@@ -285,11 +210,27 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
                         ),
-                        if (todaysDesc.isNotEmpty)
-                          GestureDetector(
-                            onTap: () => _confirmResetToday(context, provider),
-                            child: const Icon(Icons.restart_alt_rounded, size: 22, color: AppColors.inkSoft),
-                          ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                              ),
+                              tooltip: 'Historial',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                              icon: const Icon(Icons.calendar_today_rounded, size: 22, color: AppColors.inkSoft),
+                            ),
+                            if (todaysDesc.isNotEmpty)
+                              IconButton(
+                                onPressed: () => _confirmResetToday(context, provider),
+                                tooltip: 'Reiniciar hoy',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                icon: const Icon(Icons.restart_alt_rounded, size: 22, color: AppColors.inkSoft),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -297,24 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     moods: catalog.moods,
                     moodsCount: todaysCounts,
                     onSelect: (moodId) => _selectMood(context, provider, moodId),
-                  ),
-                  const SizedBox(height: 12),
-                  // Historial, justo arriba de la lista de emociones del día.
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                      ),
-                      icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
-                      label: const Text('Historial', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: AppColors.card,
-                        side: const BorderSide(color: AppColors.cardLine),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 12),
                   Padding(
@@ -351,9 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _Header extends StatelessWidget {
-  final VoidCallback onCheckUpdates;
-
-  const _Header({required this.onCheckUpdates});
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
@@ -375,73 +296,22 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-        // Widget de comparación del escritorio, búsqueda de actualizaciones
-        // por el hub y cierre de sesión. El hub de amigos ahora vive en la
-        // píldora flotante del fondo (Fase 2).
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SettingsScreen(),
-                ),
-              ),
-              tooltip: 'Ajustes',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
+        // Ajustes (perfil, widget, actualizaciones y cierre de sesión).
+        // El hub de amigos vive en la píldora flotante del fondo (Fase 2).
+        IconButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SettingsScreen(),
             ),
-            IconButton(
-              onPressed: onCheckUpdates,
-              tooltip: 'Buscar actualizaciones',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              icon: const Icon(Icons.system_update_alt_rounded, size: 22, color: AppColors.inkSoft),
-            ),
-            IconButton(
-              onPressed: () => _logout(context),
-              tooltip: 'Cerrar sesión',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              icon: const Icon(Icons.logout_rounded, size: 22, color: AppColors.inkSoft),
-            ),
-          ],
+          ),
+          tooltip: 'Ajustes',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
         ),
       ],
     );
   }
-}
-
-Future<void> _logout(BuildContext context) async {
-  // Confirmación explícita: cerrar la sesión desloguea el dispositivo.
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('¿Cerrar sesión?'),
-      content: const Text(
-        'Tus registros y emociones quedan guardados en tu cuenta. Solo tendrás que volver a iniciar sesión con tu usuario y contraseña.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return;
-  // No queremos perder el último toque: forzamos el guardado pendiente de
-  // ambos providers antes de desmontar la sesión.
-  final mood = context.read<MoodProvider>();
-  final catalog = context.read<MoodCatalogProvider>();
-  final auth = context.read<AuthProvider>();
-  await mood.flushNow();
-  await catalog.flushNow();
-  await auth.signOut();
 }
 
 /// Error de carga inicial con botón de reintento (Fase 2).

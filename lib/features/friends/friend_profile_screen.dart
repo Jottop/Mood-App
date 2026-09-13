@@ -211,7 +211,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8, right: 8),
                 child: FramedAvatar(
-                  size: 56,
+                  size: 64,
                   background: widget.friend.pillBg,
                   foreground: widget.friend.pillFg,
                   avatar: widget.friend.avatar,

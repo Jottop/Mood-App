@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/app_update.dart';
+import '../../state/auth_provider.dart';
+import '../../state/mood_catalog_provider.dart';
+import '../../state/mood_provider.dart';
 import '../widget_comparison/widget_comparison_screen.dart';
 import 'edit_profile_screen.dart';
 
 /// Pantalla de ajustes (se abre desde la "tuerca" del home): editar el perfil
-/// (alias, avatar, colores de la píldora o credenciales) y configurar e
-/// instalar el widget de comparación.
+/// (alias, avatar, colores de la píldora o credenciales), configurar e
+/// instalar el widget de comparación, buscar actualizaciones por el hub y
+/// cerrar la sesión.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -50,10 +56,126 @@ class SettingsScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const WidgetComparisonScreen()),
               ),
             ),
+            const SizedBox(height: 10),
+            _OptionTile(
+              icon: Icons.system_update_alt_rounded,
+              title: 'Buscar actualizaciones',
+              subtitle: 'Revisa el hub por si hay una versión más reciente para descargar.',
+              onTap: () => _checkForUpdates(context),
+            ),
+            const SizedBox(height: 10),
+            _OptionTile(
+              icon: Icons.logout_rounded,
+              title: 'Cerrar sesión',
+              subtitle: 'Tus registros quedan en tu cuenta; vuelve a entrar con tu usuario.',
+              onTap: () => _logout(context),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// Chequeo manual: dialog con las notas y botón de descarga si hay versión
+  /// nueva, snackbar si estás al día.
+  Future<void> _checkForUpdates(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Buscando actualizaciones…')));
+
+    final update = await const AppUpdateService().fetchLatest();
+    if (!context.mounted) return;
+    if (update == null) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No se pudo verificar. Revisa tu conexión.')),
+      );
+      return;
+    }
+
+    final installed = await AppUpdateService.installedVersionCode();
+    if (!context.mounted) return;
+    if (update.versionCode <= installed) {
+      final version = await AppUpdateService.installedVersionName();
+      if (!context.mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Estás al día (v$version).')));
+      return;
+    }
+
+    messenger.hideCurrentSnackBar();
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Nueva versión v${update.versionName}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (update.notes.isNotEmpty) ...[
+                const Text('Novedades:', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                for (final note in update.notes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $note'),
+                  ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                'Descarga ${formatAppSize(update.sizeBytes)} — la instalación te la confirma Android.',
+                style: const TextStyle(color: AppColors.inkSoft, fontSize: 12.5),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Ahora no'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              launchAppDownload(update);
+            },
+            child: const Text('Descargar', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Cierra la sesión con confirmación explícita: forzamos el guardado
+  /// pendiente de moods y catálogo antes de desloguear el dispositivo.
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text(
+          'Tus registros y emociones quedan guardados en tu cuenta. Solo tendrás que volver a iniciar sesión con tu usuario y contraseña.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final mood = context.read<MoodProvider>();
+    final catalog = context.read<MoodCatalogProvider>();
+    final auth = context.read<AuthProvider>();
+    await mood.flushNow();
+    await catalog.flushNow();
+    await auth.signOut();
   }
 }
 

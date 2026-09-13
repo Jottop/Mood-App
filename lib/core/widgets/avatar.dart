@@ -502,21 +502,26 @@ class _FruitPainter extends CustomPainter {
 
   // ----- Durazno -----
   void _paintPeach(Canvas canvas) {
-    final base = Paint()..color = const Color(0xFFF9C28B);
-    canvas.drawCircle(const Offset(0, -0.08), 0.85, base);
-    // Rubor rosado en la parte baja.
-    final blush = Paint()..color = const Color(0xFFF6897A);
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, 0.08), width: 1.02, height: 0.68),
-      blush,
+    // Fruto rosado. Se confina la sombra y el brillo con el círculo del
+    // cuerpo para que los degradados suaves no se salgan del fruto.
+    canvas.save();
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: const Offset(0, -0.08), radius: 0.85)),
     );
-    // Surco vertical típico del durazno.
-    final crease = Paint()
-      ..color = const Color(0xFFDE8A5C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.055
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(0, -0.78), const Offset(0, 0.78), crease);
+    final base = Paint()..color = const Color(0xFFF7A395);
+    canvas.drawCircle(const Offset(0, -0.08), 0.85, base);
+    // Sombra rosa en el lado inferior derecho: con alpha, sin bordes duros,
+    // da volumen sin que el durazno parezca partido por la mitad.
+    final shade = Paint()..color = const Color(0x73E8706B);
+    canvas.drawCircle(const Offset(0.14, 0.10), 0.72, shade);
+    // Brillito suave arriba a la izquierda.
+    final shine = Paint()..color = const Color(0x4DFFFFFF);
+    canvas.drawOval(
+      Rect.fromCenter(
+          center: const Offset(-0.32, -0.42), width: 0.52, height: 0.72),
+      shine,
+    );
+    canvas.restore();
     // Rabito + hojita.
     final stem = Paint()
       ..color = const Color(0xFF7A5230)
