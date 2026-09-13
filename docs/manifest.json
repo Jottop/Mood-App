@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.2.1",
-    "versionCode":  3,
+    "versionName":  "0.2.2",
+    "versionCode":  4,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Detalle por dia: al deslizar ya no se ve la burbuja del dia anterior (la burbuja se recrea por fecha y el rebase espera a que termine el gesto)."
+                  "Perfil de amigo: boton \u0027Ver sus emociones\u0027 para copiar color, emoji y/o nombre de sus emociones a tu catalogo (panel con seleccionar todo y reemplazo uno a uno)."
               ],
-    "sizeBytes":  55484157,
-    "sha256":  "cc4cbeff7fe682d94f1c701f3fb22b74ead6f03e74d3df82f28c7300e5998408",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.1/app-release.apk"
+    "sizeBytes":  55697273,
+    "sha256":  "0f4fecdcad30b7696743eb079359becd1cac5b0e36f8e07c970c5b559e43517c",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.2.2/app-release.apk"
 }
