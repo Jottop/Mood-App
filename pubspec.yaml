@@ -1,4 +1,4 @@
-﻿name: mood_app
+name: mood_app
 description: App para registrar y visualizar estados de Ã¡nimo a lo largo del dÃ­a.
 publish_to: 'none'
 version: 0.2.8+10
@@ -24,6 +24,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -31,3 +32,13 @@ flutter:
     - family: NotoEmoji
       fonts:
         - asset: assets/fonts/NotoEmoji-Regular.ttf
+
+# Icono del launcher: la imagen fuente va en assets/icon/app_icon.png
+# (PNG cuadrado, ideal 1024x1024, arte centrado en el ~66% medio para el
+# recorte adaptativo). Regenerar con: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#FBEEDC"
+  adaptive_icon_foreground: assets/icon/app_icon.png
+  min_sdk_android: 21
