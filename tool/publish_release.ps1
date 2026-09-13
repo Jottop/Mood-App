@@ -70,7 +70,7 @@ Set-Content -LiteralPath "docs\manifest.json" -Value $manifestJson -NoNewline -E
 # -- 3) commit + push --------------------------------------------------------
 $notesText = ($Notes -join "`n`n").Trim()
 git add pubspec.yaml docs/manifest.json
-git commit -m "Release v$Version: hub de descargas actualizado para el APK universal"
+git commit -m "Release v${Version}: hub de descargas actualizado para el APK universal"
 git push
 
 # -- 4) GitHub Release -------------------------------------------------------
