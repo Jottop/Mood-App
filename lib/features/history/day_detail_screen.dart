@@ -17,6 +17,11 @@ import 'mood_summary.dart';
 /// interno y se vuelve a la página central. El offset de scroll nunca crece
 /// (siempre ±1 viewport), así que el swipe atrás es ilimitado y a la derecha
 /// se frena en el día actual. Nunca se llega a offsets ni índices enormes.
+///
+/// El rebase NO ocurre a mitad del gesto (ahí `onPageChanged` solo marca la
+/// dirección pendiente): se aplica cuando el scroll se ASIENTA (dedo
+/// levantado / inercia terminada), así el contenido no cambia bajo el dedo
+/// y el salto a la página central queda invisible.
 
 /// Detalle de un día cualquiera. Permite ver sus registros y, si no es un
 /// día futuro ni una vista de solo lectura (amigo), agregar más — quedan
@@ -45,6 +50,10 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   /// [current - 1], [current] y [current + 1].
   late DateTime _currentDay;
   late final PageController _controller;
+
+  /// Dirección del día a la que se deslizó (0, ±1), pendiente de aplicar
+  /// recién cuando el scroll se asiente.
+  int _pendingDirection = 0;
 
   @override
   void initState() {
@@ -80,27 +89,42 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   /// futura que renderizar) y [onPageChanged] nunca llega al índice 2.
   int get _pageCount => _atToday ? 2 : 3;
 
+  /// Solo registra la dirección del swipe; el cambio de día NO se hace acá
+  /// porque este evento dispara al cruzar la mitad de la pantalla, con el
+  /// dedo todavía abajo: rebasear ahí hace que la página salte brusca por
+  /// delante de la mitad del gesto.
   void _onPageChanged(int index) {
-    if (index == 1) return;
-    final d = _currentDay;
-    final DateTime next;
-    if (index == 0) {
-      next = DateTime(d.year, d.month, d.day - 1);
-    } else {
-      final today = DateTime.now();
-      if (DateService.isSameDay(d, today)) {
-        // Defensa extra: jamás debería pasarle (itemCount lo impide). Si
-        // ocurre, volvemos sin cambiar de día.
-        _controller.jumpToPage(1);
-        return;
-      }
-      next = DateTime(d.year, d.month, d.day + 1);
+    if (index == 1) {
+      _pendingDirection = 0;
+      return;
     }
-    // El día nuevo y el rebase suceden en el MISMO frame sincrónico: Dart no
-    // pinta entre el setState y el jumpToPage, así que el usuario nunca ve la
-    // página intermedia. La página central (1) pasa a mostrar el día nuevo.
-    _currentDay = next;
+    if (index == 0) {
+      _pendingDirection = -1;
+      return;
+    }
+    // index == 2: solo existe 1 día "adelante" y se frena en hoy. Defensa
+    // extra por si el itemCount llegara a incluir el índice (no debería).
+    if (_atToday) {
+      _pendingDirection = 0;
+      _controller.jumpToPage(1);
+      return;
+    }
+    _pendingDirection = 1;
+  }
+
+  /// Aplica el día nuevo y rebasa al centro cuando el scroll ya se asentó:
+  /// el gesto terminó, así que el salto a la página central no se ve y la
+  /// página central pasa a mostrar (con el mismo contenido que venía de la
+  /// página lateral) el día recién elegido.
+  void _applyPendingRebase() {
+    if (_pendingDirection == 0) return;
+    final direction = _pendingDirection;
+    _pendingDirection = 0;
+    final d = _currentDay;
+    if (direction > 0 && _atToday) return;
+    _currentDay = DateTime(d.year, d.month, d.day + direction);
     setState(() {});
+    // Sin animación: al estar idle no interfiere con ningún gesto.
     _controller.jumpToPage(1);
   }
 
@@ -138,14 +162,23 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
         ),
         iconTheme: const IconThemeData(color: AppColors.ink),
       ),
-      body: PageView.builder(
-        controller: _controller,
-        // Offset siempre acotado (±1 viewport): al deslizar se cambia el día
-        // y se rebasa a la página central. Cuando se llega a hoy no hay página
-        // "siguiente" (itemCount 2) y el swipe a la derecha rebota en el borde.
-        itemCount: _pageCount,
-        onPageChanged: _onPageChanged,
-        itemBuilder: (context, index) => _buildDay(context, _dateForIndex(index), data),
+      body: NotificationListener<ScrollEndNotification>(
+        onNotification: (notification) {
+          // Solo el scroll del pager (notifications de las listas internas
+          // de cada día llegaron con mayor profundidad). Al asentarse el
+          // swipe recién ahí cambiamos de día y rebasamos al centro.
+          if (notification.depth == 0) _applyPendingRebase();
+          return false;
+        },
+        child: PageView.builder(
+          controller: _controller,
+          // Offset siempre acotado (±1 viewport): al deslizar se cambia el día
+          // y se rebasa a la página central. Cuando se llega a hoy no hay página
+          // "siguiente" (itemCount 2) y el swipe a la derecha rebota en el borde.
+          itemCount: _pageCount,
+          onPageChanged: _onPageChanged,
+          itemBuilder: (context, index) => _buildDay(context, _dateForIndex(index), data),
+        ),
       ),
     );
   }
@@ -164,8 +197,13 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
         // + sheen de burbuja de jabón) y animaciones (flotación +
         // transición al cambiar) de la burbuja principal. El
         // espacio fijo para el aura lo reserva el propio widget.
+        // Key por día: al rebasar el pager, el State se recrea y la
+        // burbuja del día nuevo aparece al instante (sin que la del
+        // día anterior haga su transición de fundido). Agregar una
+        // emoción dentro del mismo día sí la conserva y anima.
         Center(
           child: FloatingSphere(
+            key: ValueKey(date),
             colors: _entriesAscColors(data, date),
             // Aura con las emociones especiales de ese día.
             auraColors: _entriesAscSpecial(data, date),
