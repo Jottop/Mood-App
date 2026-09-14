@@ -99,10 +99,12 @@ class ManageMoodsScreen extends StatelessWidget {
       // La píldora del hub de amigos flota centrada sobre el borde inferior de
       // TODAS las pantallas, así que el botón sube (margen dinámico calculado
       // por [fabReserveFor]) para nunca quedar tapado ni rozarla; el Builder se
-      // re-construye solo cuando la píldora se mueve.
+      // re-construye solo cuando la píldora se mueve. El margen mínimo alto
+      // (126) deja además el aviso de "Deshacer", que ahora va pegado abajo,
+      // sin que el botón lo tape.
       floatingActionButton: Builder(
         builder: (context) => Padding(
-          padding: EdgeInsets.only(bottom: fabReserveFor(context)),
+          padding: EdgeInsets.only(bottom: fabReserveFor(context, minimum: 126)),
           child: FloatingActionButton.extended(
             backgroundColor: AppColors.ink,
             foregroundColor: Colors.white,

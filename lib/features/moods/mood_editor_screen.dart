@@ -191,11 +191,9 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
       final messenger = ScaffoldMessenger.of(context);
       final moodId = widget.existing!.id;
       // Se captura antes del await/pop: el context del editor queda
-      // desmontado al volver a la lista. La reserva deja aire para el FAB
-      // "Agregar estado" (margen dinámico + altura + separación) y para la
-      // píldora de amigos, aunque esta se mueva.
-      final bottomReserve =
-          bottomReserveFor(context, minimum: fabBlockReserve(context));
+      // desmontado al volver a la lista. El aviso queda pegado abajo, igual
+      // que los de las listas del día: solo esquiva la píldora de amigos.
+      final bottomReserve = bottomReserveFor(context);
       await catalog.deleteMood(moodId);
       if (mounted) Navigator.of(context).pop();
       // La barra drena en 4s y al terminar cierra el aviso: es lo que

@@ -5,9 +5,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'friends_pill_scope.dart';
 
-/// Altura estimada del FAB extendido (para dejar los avisos por encima).
-const _kExtendedFabHeight = 56.0;
-
 /// Margen inferior (px desde el canto inferior de la pantalla, incluyendo el
 /// padding de la barra de sistema) que necesita un aviso para no taparse con
 /// la píldora flotante de amigos.
@@ -48,12 +45,6 @@ double fabReserveFor(BuildContext context, {double minimum = 80}) {
   }
   return reserve;
 }
-
-/// Espacio vertical que ocupa el FAB extendido junto con su separación:
-/// margen dinámico del FAB + su altura + 12px de aire. Sirve para que un
-/// aviso se muestre por encima del botón.
-double fabBlockReserve(BuildContext context) =>
-    fabReserveFor(context) + _kExtendedFabHeight + 12;
 
 /// Muestra un aviso flotante con el estilo unificado de la app (píldora
 /// clara, redondeada), reposicionado para no chocar con la píldora de amigos
