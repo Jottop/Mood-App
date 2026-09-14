@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/undo_progress_bar.dart';
 import '../../data/mood_catalog.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -188,18 +189,44 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
       final catalog = context.read<MoodCatalogProvider>();
       final messenger = ScaffoldMessenger.of(context);
       final moodId = widget.existing!.id;
+      // Se captura antes del await/pop: el context del editor queda
+      // desmontado al volver a la lista.
+      final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
       await catalog.deleteMood(moodId);
       if (mounted) Navigator.of(context).pop();
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Emoción eliminada'),
-          action: SnackBarAction(
-            label: 'Deshacer',
-            onPressed: () => catalog.restoreMood(moodId),
+      // La barra drena en 4s y al terminar cierra el aviso: es lo que
+      // garantiza que desaparezca, porque un SnackBar con "Deshacer" no se
+      // cierra solo (mismo patrón que en las listas de registros del día).
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            // El FAB "Agregar estado" está elevado sobre la píldora de
+            // amigos (96) y mide ~56: el aviso se eleva para no tapar el
+            // botón ni quedar detrás de la píldora.
+            margin: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 164),
+            // Barra clara (no opaca) para que no tape la lista de debajo.
+            backgroundColor: AppColors.card,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: AppColors.cardLine),
+            ),
+            content: UndoProgressBar(
+              duration: const Duration(seconds: 4),
+              // Al terminar la barra se cierra el aviso: desaparición a
+              // los 4s garantizada.
+              onFinished: () => messenger.hideCurrentSnackBar(),
+              label: 'Emoción eliminada',
+            ),
+            action: SnackBarAction(
+              label: 'Deshacer',
+              textColor: AppColors.ink,
+              onPressed: () => catalog.restoreMood(moodId),
+            ),
           ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+        );
     }
   }
 

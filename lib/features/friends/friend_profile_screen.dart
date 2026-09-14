@@ -195,31 +195,36 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Misma burbuja que el Home (flotación + auras), pero con los datos
-        // del amigo. El avatar del amigo queda en la esquina superior
-        // derecha del bloque, sin pegarse a la burbuja.
-        Center(
-          child: Stack(
-            alignment: Alignment.topRight,
-            children: [
-              FloatingSphere(
-                colors: dayBubbleData(view, today).colorsTopToBottom,
-                auraColors: dayBubbleData(view, today).auraColors,
-                size: 200,
-                floatAmplitude: 12,
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8, right: 8),
-                child: FramedAvatar(
-                  size: 64,
-                  background: widget.friend.pillBg,
-                  foreground: widget.friend.pillFg,
-                  avatar: widget.friend.avatar,
-                  initial: widget.friend.displayInitial,
+        // Misma disposición que la burbuja del Home (flotación + auras),
+        // pero con los datos del amigo: el bloque ocupa todo el ancho y la
+        // esfera queda centrada, así el avatar amarra a la esquina superior
+        // derecha de la pantalla, igual que en la burbuja propia, sin
+        // pegarse a la esfera.
+        Stack(
+          alignment: Alignment.topRight,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: Center(
+                child: FloatingSphere(
+                  colors: dayBubbleData(view, today).colorsTopToBottom,
+                  auraColors: dayBubbleData(view, today).auraColors,
+                  size: 200,
+                  floatAmplitude: 12,
                 ),
               ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8, right: 8),
+              child: FramedAvatar(
+                size: 64,
+                background: widget.friend.pillBg,
+                foreground: widget.friend.pillFg,
+                avatar: widget.friend.avatar,
+                initial: widget.friend.displayInitial,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Text(
