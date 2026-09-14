@@ -33,6 +33,11 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     HomeWidget.isRequestPinWidgetSupported().then((ok) {
       if (mounted) setState(() => _pinSupported = ok);
     });
+    // Lee el cache del widget tal cual está guardado: la tarjeta de estado
+    // muestra al instante qué es lo que el AppWidget tiene para dibujar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<WidgetComparisonService>().refreshCacheStatus();
+    });
   }
 
   Future<void> _pinWidget(BuildContext context) async {
@@ -147,6 +152,8 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
               ),
+            const SizedBox(height: 18),
+            _WidgetStatusCard(status: service.cacheStatus),
             const SizedBox(height: 20),
             const Text(
               'Disposición',
@@ -301,6 +308,120 @@ class _NoFriendsHint extends StatelessWidget {
               'Aún no tienes amigos. Agrega uno con su código de amigo en el menú de la píldora '
               'flotante y vuelve para configurar la comparación.',
               style: TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.inkSoft),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WidgetStatusCard extends StatelessWidget {
+  final WidgetCacheStatus? status;
+
+  const _WidgetStatusCard({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = status;
+    final Widget header;
+    if (s == null) {
+      header = _statusLine(
+        icon: Icons.hourglass_top_rounded,
+        iconColor: AppColors.inkSoft,
+        text: 'Leyendo el cache del widget…',
+      );
+    } else if (s.ok) {
+      header = _statusLine(
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFF2E7D32),
+        text: s.isToday
+            ? 'El widget tiene tus burbujas guardadas.'
+            : 'Cache guardado pero de OTRO día (el widget dibuja burbujas vacías).',
+      );
+    } else {
+      header = _statusLine(
+        icon: Icons.help_rounded,
+        iconColor: const Color(0xFFB25E2C),
+        text: 'Sin cache: el widget muestra el diseño genérico hasta que la app publique.',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.storage_rounded, size: 18, color: AppColors.inkSoft),
+              SizedBox(width: 8),
+              Text(
+                'Estado del widget',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          header,
+          _statusLine(
+            icon: Icons.calendar_today_rounded,
+            iconColor: AppColors.inkSoft,
+            text: s == null
+                ? '—'
+                : 'Guardado para el día ${s.dateKey ?? '(sin fecha)'}${s.isToday ? ' · hoy' : ''}',
+          ),
+          _statusLine(
+            icon: Icons.bubble_chart_rounded,
+            iconColor: AppColors.inkSoft,
+            text: s == null
+                ? '—'
+                : (s.bubbles.isEmpty
+                    ? 'Ninguna burbuja guardada'
+                    : 'Burbujas: ${s.bubbles.join(' · ')}'),
+          ),
+          _statusLine(
+            icon: Icons.smartphone_rounded,
+            iconColor: AppColors.inkSoft,
+            text: s == null
+                ? '—'
+                : 'Disposición: ${s.layout == WidgetLayout.horizontal ? 'horizontal' : 'vertical'}',
+          ),
+          if (s != null && !s.ok)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Si aquí no aparece tu burbuja y tu amigo, el widget de la pantalla de inicio '
+                'tampoco los tiene: eso es exactamente lo que se corrige. Tocá "Actualizar burbujas".',
+                style: TextStyle(fontSize: 11.5, height: 1.4, color: AppColors.inkSoft),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusLine({
+    required IconData icon,
+    required Color iconColor,
+    required String text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.inkSoft),
             ),
           ),
         ],

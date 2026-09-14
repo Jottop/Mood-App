@@ -50,6 +50,7 @@ class WidgetComparisonService extends ChangeNotifier {
   bool _rendering = false;
   String? _lastError;
   DateTime? _lastRenderedAt;
+  WidgetCacheStatus? _cacheStatus;
 
   Timer? _debounce;
   Timer? _minuteTimer;
@@ -71,6 +72,22 @@ class WidgetComparisonService extends ChangeNotifier {
   bool get rendering => _rendering;
   String? get lastError => _lastError;
   DateTime? get lastRenderedAt => _lastRenderedAt;
+
+  /// Foto real del cache del widget (leído del storage compartido, no
+  /// calculado). Null si aún no se leyó.
+  WidgetCacheStatus? get cacheStatus => _cacheStatus;
+
+  /// Lee de nuevo el cache del widget para la tarjeta de diagnóstico: sirve
+  /// tanto para ver lo que quedó guardado (aunque la app no haya publicado
+  /// todavía) como para confirmar que un write hizo roundtrip.
+  Future<void> refreshCacheStatus() async {
+    try {
+      _cacheStatus = await readWidgetCacheStatus();
+    } catch (_) {
+      _cacheStatus = null;
+    }
+    notifyListeners();
+  }
 
   bool get hasFriends => _friendIds.isNotEmpty;
 
@@ -142,6 +159,9 @@ class WidgetComparisonService extends ChangeNotifier {
     // Re-fresca los snapshots de los amigos (con dirty-check) y publica la
     // escena completa: las burbujas ajenas también se mantienen al día.
     unawaited(refresh());
+    // Lee el cache ya guardado (previo a esta sesión): la pantalla de
+    // configuración enseguida muestra lo que el widget tiene de verdad.
+    unawaited(refreshCacheStatus());
     // Con amigo elegido, el widget se re-fresca solo cada minuto.
     _ensurePeriodicRefresh();
   }
@@ -199,19 +219,24 @@ class WidgetComparisonService extends ChangeNotifier {
   }
 
   /// Fuerza una re-publicación inmediata (botón "Actualizar burbujas",
-  /// resume de la app, temporizador de cada minuto). Antes de renderizar
-  /// re-fresca los snapshots remotos de los amigos elegidos (solo si su
-  /// fingerprint cambió): así SUS burbujas también se mantienen al día. Si la
-  /// red falla, se conserva el último snapshot guardado. Si ya hay una
-  /// ejecución en curso, la nueva llamada se descarta (evita solapamientos).
+  /// resume de la app, temporizador de cada minuto). Primero publica la escena
+  /// YA con lo que haya (mi burbuja + amigos del snapshot): el widget nunca
+  /// espera a la red para estrenarse o salir del placeholder. Después refresca
+  /// los snapshots remotos de los amigos (solo si su fingerprint cambió) y, si
+  /// cambió alguno, re-publica. Si la red falla, se conserva el snapshot
+  /// guardado. Si ya hay una ejecución en curso, la nueva llamada se descarta
+  /// (evita solapamientos).
   Future<void> refresh() async {
     if (_refreshRunning) return;
     _refreshRunning = true;
     try {
       _debounce?.cancel();
       _debounce = null;
-      await _maybeRefreshFriendSnapshots();
       await _publish();
+      final friendsChanged = await _maybeRefreshFriendSnapshots();
+      if (friendsChanged) {
+        await _publish();
+      }
     } finally {
       _refreshRunning = false;
     }
@@ -240,23 +265,31 @@ class WidgetComparisonService extends ChangeNotifier {
   /// No se lanza en cada toque mío (sería una consulta por mutación): corre
   /// al arrancar la app, al volver a ella, en el botón "Actualizar burbujas"
   /// y al tocar un amigo. Si la red falla se conserva el snapshot previo.
-  Future<void> _maybeRefreshFriendSnapshots() async {
+  /// Devuelve `true` si algún snapshot cambió (para que el llamador republique).
+  /// Cada consulta lleva un timeout duro: una red colgada no puede bloquear
+  /// la publicación del widget (que corre aparte, por eso `refresh` publica
+  /// ANTES de llamar a esto).
+  Future<bool> _maybeRefreshFriendSnapshots() async {
     if (_friendIds.isEmpty) {
       _friendViews.clear();
       notifyListeners();
-      return;
+      return false;
     }
     var anyFailed = false;
+    var changed = false;
     for (final id in _friendIds) {
       try {
-        final freshFingerprint = await friendDataFingerprint(id);
+        final freshFingerprint = await friendDataFingerprint(id)
+            .timeout(const Duration(seconds: 8));
         final current = _friendViews[id];
         final stale = current == null ||
             friendViewFingerprint(current) != freshFingerprint;
         if (stale) {
-          _friendViews[id] = await fetchFriendMoodViewData(id);
+          _friendViews[id] = await fetchFriendMoodViewData(id)
+              .timeout(const Duration(seconds: 8));
           final prefs = await SharedPreferences.getInstance();
           await _persistSnapshots(prefs);
+          changed = true;
         }
       } catch (_) {
         // Red caída: el widget sigue con el snapshot guardado.
@@ -271,6 +304,7 @@ class WidgetComparisonService extends ChangeNotifier {
       _lastError = null;
     }
     notifyListeners();
+    return changed;
   }
 
   /// Escribe el cache de la escena (burbujas de hoy + etiquetas + layout) y
@@ -303,6 +337,11 @@ class WidgetComparisonService extends ChangeNotifier {
       await saveWidgetScene(bubbles: bubbles, layout: _layout);
       await refreshWidgetPreview();
       _lastRenderedAt = DateTime.now();
+      // Readback real del storage: si esto no se lee bien, el widget verá el
+      // placeholder. El diagnóstico de la pantalla lo muestra tal cual.
+      try {
+        _cacheStatus = await readWidgetCacheStatus();
+      } catch (_) {}
     } catch (_) {
       _lastError = 'No se pudo actualizar el widget.';
     } finally {

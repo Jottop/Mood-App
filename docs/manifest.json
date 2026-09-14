@@ -1,14 +1,14 @@
 ﻿{
-    "versionName":  "0.4.9",
-    "versionCode":  22,
+    "versionName":  "0.4.10",
+    "versionCode":  23,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "El widget del escritorio vuelve al diseño clásico: la burbuja de cada emoción con sus colores y su etiqueta (la tuya como \"Yo\" y el nombre de cada amigo).",
-                  "Se pueden elegir hasta 2 amigos para comparar (1 a 3 burbujas).",
-                  "El widget se configura en horizontal (lado a lado) o vertical (apiladas).",
-                  "Nunca se queda con el fondo vacío: si no hay datos, muestra el dibujo de guía."
+                  "El widget del escritorio ya no queda nunca estancado en el dibujo genérico: al abrir la app publica al instante tu burbuja y la de tus amigos (con sus etiquetas), sin esperar a la red.",
+                  "El refresco de las burbujas de tus amigos corre en segundo plano y con tiempo límite, así una conexión lenta nunca bloquea la actualización del widget.",
+                  "Nueva tarjeta \"Estado del widget\": muestra qué burbujas tiene guardadas el widget de verdad (fecha, etiquetas y disposición), para verificar al instante que el escritorio coincide con la app.",
+                  "Configuración de hasta 2 amigos (1 a 3 burbujas) en horizontal o vertical, y el widget nunca se queda con el fondo vacío."
               ],
-    "sizeBytes":  57901522,
-    "sha256":  "b38427dd5315f08b1d89b8d1b25dc53ff76c5d2a4a27f2b5b2cdc0c022772b66",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.9/app-release.apk"
+    "sizeBytes":  57918382,
+    "sha256":  "dcdbdd9763ec88e3d18c6642a30311d7d94e69addd1394fdf79f90151a1ad7c6",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.10/app-release.apk"
 }
