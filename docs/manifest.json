@@ -1,11 +1,12 @@
 ﻿{
-    "versionName":  "0.4.0",
-    "versionCode":  13,
+    "versionName":  "0.4.1",
+    "versionCode":  14,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Actualizacion dentro de la app: descarga con progreso e instalacion nativa (dialog de Android) sin salir al navegador"
+                  "Borrado de una emocion: el aviso con deshacer dura 4 segundos, con una barra visible, y se cierra solo",
+                  "Burbuja del amigo: avatar y burbuja en las mismas posiciones que en la burbuja propia"
               ],
     "sizeBytes":  57671902,
-    "sha256":  "562fe27dbc3c4c834948cace4335e9d51cc789744a2a80efdc02c8aa78917889",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.0/app-release.apk"
+    "sha256":  "3cc550b1a6a466b12b22018109f135c83f04a6a1cd19c9ee75c555dde3d1419f",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.1/app-release.apk"
 }
