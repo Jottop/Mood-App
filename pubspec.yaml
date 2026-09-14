@@ -1,7 +1,7 @@
-﻿name: mood_app
+name: mood_app
 description: App para registrar y visualizar estados de ÃƒÂ¡nimo a lo largo del dÃƒÂ­a.
 publish_to: 'none'
-version: 0.3.0+12
+version: 0.4.0+13
 environment:
   sdk: '>=3.3.0 <4.0.0'
 
@@ -17,8 +17,9 @@ dependencies:
   home_widget: ^0.9.4
   workmanager: ^0.10.10
   package_info_plus: ^10.2.1
-  url_launcher: ^6.3.2
   http: ^1.6.0
+  path_provider: ^2.1.6
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Red (Supabase: auth, datos, amigos) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Instalar el APK de la actualización dentro de la app (Android 8+). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Abrir la descarga de actualizaciones en el navegador (hub). -->
     <queries>
         <intent>
@@ -39,6 +41,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Expone el APK descargado al instalador nativo de Android. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Widget de comparación de burbujas (Fase 3): recibe los broadcasts
              del sistema cuando el launcher lo agrega/renueva. -->

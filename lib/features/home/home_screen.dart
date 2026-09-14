@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/avatar.dart';
+import '../../core/widgets/in_app_update_flow.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
 import '../../data/app_update.dart';
 import '../../services/date_service.dart';
@@ -56,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
         duration: const Duration(seconds: 8),
         action: SnackBarAction(
           label: 'Descargar',
-          onPressed: () => launchAppDownload(update),
+          onPressed: () => runInAppUpdate(context, update),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/in_app_update_flow.dart';
 import '../../data/app_update.dart';
 import '../../state/auth_provider.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -60,7 +61,7 @@ class SettingsScreen extends StatelessWidget {
             _OptionTile(
               icon: Icons.system_update_alt_rounded,
               title: 'Buscar actualizaciones',
-              subtitle: 'Revisa el hub por si hay una versión más reciente para descargar.',
+              subtitle: 'Revisa si hay una versión más reciente y actualiza desde la app.',
               onTap: () => _checkForUpdates(context),
             ),
             const SizedBox(height: 10),
@@ -104,6 +105,7 @@ class SettingsScreen extends StatelessWidget {
 
     messenger.hideCurrentSnackBar();
     if (!context.mounted) return;
+    final screenContext = context;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -124,7 +126,7 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 8),
               ],
               Text(
-                'Descarga ${formatAppSize(update.sizeBytes)} — la instalación te la confirma Android.',
+                'Descargas ${formatAppSize(update.sizeBytes)} e instalás aquí mismo, sin salir de la app.',
                 style: const TextStyle(color: AppColors.inkSoft, fontSize: 12.5),
               ),
             ],
@@ -138,9 +140,9 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              launchAppDownload(update);
+              runInAppUpdate(screenContext, update);
             },
-            child: const Text('Descargar', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text('Descargar e instalar', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),

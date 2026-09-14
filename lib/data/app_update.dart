@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// URL del manifiesto de versiones que sirve la página hub (GitHub Pages).
 /// Se puede sobreescribir al buildear con
@@ -86,12 +85,6 @@ class AppUpdateService {
     final info = await PackageInfo.fromPlatform();
     return int.tryParse(info.buildNumber) ?? 0;
   }
-}
-
-/// Abre el .apk en el navegador; Chrome descarga y dispara el instalador.
-/// Compartido entre el chequeo automático del home y el manual de ajustes.
-Future<void> launchAppDownload(AppUpdateInfo update) async {
-  await launchUrl(Uri.parse(update.apkUrl), mode: LaunchMode.externalApplication);
 }
 
 /// Formatea el tamaño del .apk a "X.X MB" (vacío si viene en 0).
