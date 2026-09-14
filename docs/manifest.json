@@ -1,12 +1,11 @@
 ﻿{
-    "versionName":  "0.4.1",
-    "versionCode":  14,
+    "versionName":  "0.4.2",
+    "versionCode":  15,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Borrado de una emocion: el aviso con deshacer dura 4 segundos, con una barra visible, y se cierra solo",
-                  "Burbuja del amigo: avatar y burbuja en las mismas posiciones que en la burbuja propia"
+                  "Aviso de borrado y boton de Agregar estado mas abajo en la pantalla (no tan flotando arriba)"
               ],
-    "sizeBytes":  57671902,
-    "sha256":  "3cc550b1a6a466b12b22018109f135c83f04a6a1cd19c9ee75c555dde3d1419f",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.1/app-release.apk"
+    "sizeBytes":  57671906,
+    "sha256":  "521fe97b10cec16ab0e7294c7e7ba62e6a691b8e6d6e7eff6ab24d59f07f5bdb",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.2/app-release.apk"
 }
