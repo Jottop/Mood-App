@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../data/models/profile.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
@@ -64,8 +65,10 @@ class _FriendsSheetState extends State<FriendsSheet> {
       if (error == null) _codeController.clear();
     });
     if (error == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Amigo agregado!'), duration: Duration(seconds: 2)),
+      showAppSnackBar(
+        context,
+        content: const Text('¡Amigo agregado!'),
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -92,7 +95,7 @@ class _FriendsSheetState extends State<FriendsSheet> {
     if (confirmed != true) return;
     final error = await friends.removeFriend(friend.id);
     if (mounted && error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      showAppSnackBar(context, content: Text(error));
     }
   }
 
@@ -101,8 +104,10 @@ class _FriendsSheetState extends State<FriendsSheet> {
     if (code == null) return;
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Código copiado. Compártelo con tu amigo.'), duration: Duration(seconds: 2)),
+    showAppSnackBar(
+      context,
+      content: const Text('Código copiado. Compártelo con tu amigo.'),
+      duration: const Duration(seconds: 2),
     );
   }
 

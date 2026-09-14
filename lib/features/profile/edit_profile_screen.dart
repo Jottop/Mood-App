@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/avatar.dart';
 import '../../state/auth_provider.dart';
 import '../moods/widgets/custom_color_picker.dart';
@@ -86,12 +87,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!mounted) return;
     setState(() => _savingProfile = false);
     if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+      showAppSnackBar(context, content: Text(error));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Perfil actualizado.'), duration: Duration(seconds: 2)),
+    showAppSnackBar(
+      context,
+      content: const Text('Perfil actualizado.'),
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -135,8 +137,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _usernameError = error;
     });
     if (error == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario actualizado.'), duration: Duration(seconds: 2)),
+      showAppSnackBar(
+        context,
+        content: const Text('Usuario actualizado.'),
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -157,8 +161,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
     if (error == null) {
       _passwordController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contraseña actualizada.'), duration: Duration(seconds: 2)),
+      showAppSnackBar(
+        context,
+        content: const Text('Contraseña actualizada.'),
+        duration: const Duration(seconds: 2),
       );
     }
   }

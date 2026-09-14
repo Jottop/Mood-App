@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/avatar.dart';
+import '../../core/widgets/friends_pill_scope.dart';
 import '../../data/models/profile.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
@@ -59,11 +60,27 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
   // cambio de ancho al rotar no rebota el umbral en bucle.
   bool _previewVertical = false;
 
+  // Geometría actual de la píldora, publicada para que los avisos y el FAB
+  // de abajo se reposicionen sin taparse con ella (null si está oculta).
+  final ValueNotifier<Rect?> _pillRect = ValueNotifier<Rect?>(null);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
     _loadPosition();
+  }
+
+  @override
+  void dispose() {
+    _pillRect.dispose();
+    super.dispose();
+  }
+
+  /// Publica el rect de la píldora (o null si está oculta) solo cuando
+  /// cambia, para no notificar dependientes en cada frame.
+  void _publishPillRect(Rect? rect) {
+    if (_pillRect.value != rect) _pillRect.value = rect;
   }
 
   /// Orientación vigente: la del arrastre si estás moviendo, la del anclaje
@@ -238,11 +255,15 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return LayoutBuilder(builder: (context, constraints) {
       if (keyboardOpen) {
-        return Stack(
-          textDirection: TextDirection.ltr,
-          children: [
-            Positioned.fill(child: widget.child),
-          ],
+        _publishPillRect(null);
+        return FriendsPillScope(
+          notifier: _pillRect,
+          child: Stack(
+            textDirection: TextDirection.ltr,
+            children: [
+              Positioned.fill(child: widget.child),
+            ],
+          ),
         );
       }
 
@@ -264,15 +285,18 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       final top = (base.dy + _drag.dy).clamp(bandTop, maxTop);
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
+      _publishPillRect(Rect.fromLTWH(left, top, w, h));
 
-      return Stack(
-        textDirection: TextDirection.ltr,
-        children: [
-          Positioned.fill(child: widget.child),
-          // AnimatedPositioned arranca en cero mientras arrastras (sigue el
-          // dedo) y hace un pequeño "dock" animado al soltar en un borde o
-          // volver al centro.
-          AnimatedPositioned(
+      return FriendsPillScope(
+        notifier: _pillRect,
+        child: Stack(
+          textDirection: TextDirection.ltr,
+          children: [
+            Positioned.fill(child: widget.child),
+            // AnimatedPositioned arranca en cero mientras arrastras (sigue
+            // el dedo) y hace un pequeño "dock" animado al soltar en un
+            // borde o volver al centro.
+            AnimatedPositioned(
             duration: _dragging ? Duration.zero : const Duration(milliseconds: 240),
             curve: Curves.easeOut,
             left: left,
@@ -301,7 +325,8 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       );
     });
   }

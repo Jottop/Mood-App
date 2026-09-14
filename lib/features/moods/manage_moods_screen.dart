@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/special_badge.dart';
 import '../../data/models/mood_type.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -95,18 +96,21 @@ class ManageMoodsScreen extends StatelessWidget {
           );
         },
       ),
-      // La píldora del hub de amigos flota centrada sobre el borde inferior
-      // de TODAS las pantallas, así que el botón va elevado para nunca
-      // quedar tapado ni rozarla.
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: FloatingActionButton.extended(
-          backgroundColor: AppColors.ink,
-          foregroundColor: Colors.white,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Agregar estado'),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MoodEditorScreen()),
+      // La píldora del hub de amigos flota centrada sobre el borde inferior de
+      // TODAS las pantallas, así que el botón sube (margen dinámico calculado
+      // por [fabReserveFor]) para nunca quedar tapado ni rozarla; el Builder se
+      // re-construye solo cuando la píldora se mueve.
+      floatingActionButton: Builder(
+        builder: (context) => Padding(
+          padding: EdgeInsets.only(bottom: fabReserveFor(context)),
+          child: FloatingActionButton.extended(
+            backgroundColor: AppColors.ink,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Agregar estado'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MoodEditorScreen()),
+            ),
           ),
         ),
       ),

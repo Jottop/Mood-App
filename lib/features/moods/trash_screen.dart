@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/special_badge.dart';
 import '../../data/models/trashed_mood.dart';
 import '../../state/mood_catalog_provider.dart';
@@ -48,8 +49,10 @@ class _TrashScreenState extends State<TrashScreen> {
     if (confirmed != true || !mounted) return;
     await context.read<MoodCatalogProvider>().emptyTrash();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Papelera vaciada.'), duration: Duration(seconds: 2)),
+    showAppSnackBar(
+      context,
+      content: const Text('Papelera vaciada.'),
+      duration: const Duration(seconds: 2),
     );
   }
 

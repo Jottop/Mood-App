@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/emoji_pack.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/undo_progress_bar.dart';
 import '../../data/mood_catalog.dart';
 import '../../data/models/mood_type.dart';
@@ -190,8 +191,11 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
       final messenger = ScaffoldMessenger.of(context);
       final moodId = widget.existing!.id;
       // Se captura antes del await/pop: el context del editor queda
-      // desmontado al volver a la lista.
-      final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
+      // desmontado al volver a la lista. La reserva deja aire para el FAB
+      // "Agregar estado" (margen dinámico + altura + separación) y para la
+      // píldora de amigos, aunque esta se mueva.
+      final bottomReserve =
+          bottomReserveFor(context, minimum: fabBlockReserve(context));
       await catalog.deleteMood(moodId);
       if (mounted) Navigator.of(context).pop();
       // La barra drena en 4s y al terminar cierra el aviso: es lo que
@@ -202,10 +206,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
         ..showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            // El FAB "Agregar estado" está elevado sobre la píldora de
-            // amigos (96) y mide ~56: el aviso se eleva para no tapar el
-            // botón ni quedar detrás de la píldora.
-            margin: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 148),
+            margin: EdgeInsets.fromLTRB(16, 0, 16, bottomReserve),
             // Barra clara (no opaca) para que no tape la lista de debajo.
             backgroundColor: AppColors.card,
             elevation: 6,

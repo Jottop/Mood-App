@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/in_app_update_flow.dart';
 import '../../core/widgets/mood_limit_dialog.dart';
@@ -50,15 +51,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final installed = await AppUpdateService.installedVersionCode();
     if (!mounted || update.versionCode <= installed) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Nueva versión v${update.versionName} disponible'),
-        duration: const Duration(seconds: 8),
-        action: SnackBarAction(
-          label: 'Descargar',
-          onPressed: () => runInAppUpdate(context, update),
-        ),
+    showAppSnackBar(
+      context,
+      content: Text('Nueva versión v${update.versionName} disponible'),
+      duration: const Duration(seconds: 8),
+      action: SnackBarAction(
+        label: 'Descargar',
+        onPressed: () => runInAppUpdate(context, update),
       ),
     );
   }

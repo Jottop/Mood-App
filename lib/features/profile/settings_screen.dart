@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/in_app_update_flow.dart';
 import '../../data/app_update.dart';
 import '../../state/auth_provider.dart';
@@ -81,14 +82,15 @@ class SettingsScreen extends StatelessWidget {
   /// nueva, snackbar si estás al día.
   Future<void> _checkForUpdates(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Buscando actualizaciones…')));
+    showAppSnackBar(context, content: const Text('Buscando actualizaciones…'));
 
     final update = await const AppUpdateService().fetchLatest();
     if (!context.mounted) return;
     if (update == null) {
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('No se pudo verificar. Revisa tu conexión.')),
+      showAppSnackBar(
+        context,
+        content: const Text('No se pudo verificar. Revisa tu conexión.'),
       );
       return;
     }
@@ -99,7 +101,7 @@ class SettingsScreen extends StatelessWidget {
       final version = await AppUpdateService.installedVersionName();
       if (!context.mounted) return;
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('Estás al día (v$version).')));
+      showAppSnackBar(context, content: Text('Estás al día (v$version).'));
       return;
     }
 

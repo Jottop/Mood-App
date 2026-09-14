@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../state/auth_provider.dart';
 import '../home/widgets/mood_bubble.dart';
 
@@ -35,11 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final auth = context.read<AuthProvider>();
       if (auth.sessionExpiredNotice) {
         auth.consumeSessionExpiredNotice();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('Tu sesión venció. Inicia sesión de nuevo.'),
-          ),
+        showAppSnackBar(
+          context,
+          content: const Text('Tu sesión venció. Inicia sesión de nuevo.'),
         );
       }
     });

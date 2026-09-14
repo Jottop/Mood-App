@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/app_installer.dart';
 import '../../data/app_update.dart';
 import '../theme/app_colors.dart';
+import 'app_snackbar.dart';
 
 /// Botón "Descargar e instalar" unificado para el snackbar del home y el
 /// dialog de ajustes: pide el permiso de instalación si falta, descarga con
@@ -12,8 +13,7 @@ Future<void> runInAppUpdate(BuildContext context, AppUpdateInfo update) async {
   // Snackbars con guarda de montaje: evita usar el context tras un await.
   void showMessage(String message) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 4)));
+    showAppSnackBar(context, content: Text(message));
   }
 
   const installer = AppInstaller();

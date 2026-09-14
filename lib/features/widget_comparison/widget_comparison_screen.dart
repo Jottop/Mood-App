@@ -3,6 +3,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/day_bubble_data.dart';
 import '../../data/mood_view_data.dart';
 import '../../state/friends_provider.dart';
@@ -37,11 +38,10 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
       qualifiedAndroidName: 'com.example.mood_app.MoodComparisonProvider',
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Elige la posición del widget en tu escritorio.'),
-        duration: Duration(seconds: 3),
-      ),
+    showAppSnackBar(
+      context,
+      content: const Text('Elige la posición del widget en tu escritorio.'),
+      duration: const Duration(seconds: 3),
     );
   }
 

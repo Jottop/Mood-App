@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/day_bubble_data.dart';
 import '../../data/friend_data_loader.dart';
@@ -60,8 +61,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
       // En un refresco silencioso con datos ya cargados no se rompe la
       // pantalla: se conserva lo mostrado y solo se avisa con un snackbar.
       if (silent && _view != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo actualizar. Revisa tu conexión.')),
+        showAppSnackBar(
+          context,
+          content: const Text('No se pudo actualizar. Revisa tu conexión.'),
         );
         return;
       }
@@ -91,13 +93,12 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
     );
     if (!mounted) return;
     if (applied > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            applied == 1
-                ? 'Se actualizó 1 de tus emociones desde el perfil de $_displayName.'
-                : 'Se actualizaron $applied de tus emociones desde el perfil de $_displayName.',
-          ),
+      showAppSnackBar(
+        context,
+        content: Text(
+          applied == 1
+              ? 'Se actualizó 1 de tus emociones desde el perfil de $_displayName.'
+              : 'Se actualizaron $applied de tus emociones desde el perfil de $_displayName.',
         ),
       );
     }

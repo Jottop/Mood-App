@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_snackbar.dart';
 import '../../../core/widgets/undo_progress_bar.dart';
 import '../../../data/models/mood_entry.dart';
 import '../../../data/models/mood_type.dart';
@@ -60,43 +61,20 @@ class DayEntryList extends StatelessWidget {
     final provider = context.read<MoodProvider>();
     provider.deleteEntry(entry.id);
 
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          duration: _undoDuration,
-          // La píldora del hub de amigos flota sobre el borde inferior en un
-          // overlay por ENCIMA del Navigator (fuera del alcance del
-          // ScaffoldMessenger), así que el aviso se eleva para no quedar
-          // detrás de ella: 74 = SafeArea mínimo de la píldora (10) + altura
-          // de la píldora (52) + separación (12).
-          margin: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            MediaQuery.viewPaddingOf(context).bottom + 74,
-          ),
-          // Barra clara (no opaca) para que no tape la lista de debajo.
-          backgroundColor: AppColors.card,
-          elevation: 6,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.cardLine),
-          ),
-          content: UndoProgressBar(
-            duration: _undoDuration,
-            // Al terminar la barra se cierra el aviso: así la desaparición
-            // a los 4s está garantizada aunque el timer del framework tarde.
-            onFinished: () => messenger.hideCurrentSnackBar(),
-          ),
-          action: SnackBarAction(
-            label: 'Deshacer',
-            textColor: AppColors.ink,
-            onPressed: () => provider.restoreEntry(entry),
-          ),
-        ),
-      );
+    showAppSnackBar(
+      context,
+      content: UndoProgressBar(
+        duration: _undoDuration,
+        // Al terminar la barra se cierra el aviso: así la desaparición a los
+        // 4s está garantizada aunque el timer del framework tarde.
+        onFinished: () => messenger.hideCurrentSnackBar(),
+      ),
+      action: SnackBarAction(
+        label: 'Deshacer',
+        textColor: AppColors.ink,
+        onPressed: () => provider.restoreEntry(entry),
+      ),
+    );
   }
 
   void _handleReorder(BuildContext context, int oldIndex, int newIndex) {
