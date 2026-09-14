@@ -16,22 +16,23 @@ import 'widget_cache_store.dart';
 
 /// Orquesta el widget de comparación del escritorio:
 ///
-///  * guarda hasta 2 amigos elegidos (con "Yo" siempre como 1.ª burbuja), la
-///    disposición (horizontal/vertical) y un SNAPSHOT local de los datos de
-///    cada amigo (para que el widget ande sin conexión y para no volver a
-///    consultar Supabase en cada actualización de la burbuja),
-///  * recalcula la escena (1 a 3 burbujas) y la guarda como cache (colores y
+///  * guarda el amigo elegido y un SNAPSHOT local de sus datos (para que el
+///    widget ande sin conexión y para no volver a consultar Supabase en cada
+///    actualización de la burbuja),
+///  * recalcula la escena "mía vs. amigo" y la guarda como cache (colores y
 ///    etiquetas) en el storage del widget (`HomeWidget.saveWidgetData`); el
 ///    AppWidget la DIBUJA en nativo (Kotlin), sin depender del motor Flutter,
 ///  * le avisa al sistema que actualice el AppWidget.
 ///
 /// Cada cambio en mis registros/catálogo re-renderiza con un pequeño
-/// debounce; al volver a la app (resume), al elegir amigos o tocar "Actualizar
-/// burbujas" se fuerza de inmediato, y mientras la app está en primer plano y
-/// HAY amigo elegido el widget se re-fresca solo cada minuto. Ese refresco
-/// periódico usa un "fingerprint" remoto barato (~2 consultas ligeras por
-/// amigo) y solo re-descarga el historial completo del amigo cuando algo
-/// cambió de verdad.
+/// debounce; al volver a la app (resume), al seleccionar amigo o tocar
+/// "Actualizar burbujas" se fuerza de inmediato, y mientras la app está en
+/// primer plano y HAY amigo elegido el widget se re-fresca solo cada minuto.
+/// Ese refresco periódico usa un "fingerprint" remoto barato (~2 consultas
+/// ligeras) y solo re-descarga el historial completo del amigo cuando algo
+/// cambió de verdad. Sin Realtime: la publicación `supabase_realtime` ya no
+/// incluye las tablas del amigo (era la mayor carga de la BD) y el minuto de
+/// latencia no se nota en la burbuja.
 class WidgetComparisonService extends ChangeNotifier {
   WidgetComparisonService({
     required this.moodProvider,
@@ -43,53 +44,27 @@ class WidgetComparisonService extends ChangeNotifier {
   final MoodProvider moodProvider;
   final MoodCatalogProvider catalogProvider;
 
-  List<String> _friendIds = const [];
-  List<String> _friendNames = const [];
-  final Map<String, FriendMoodViewData> _friendViews = {};
-  WidgetLayout _layout = WidgetLayout.horizontal;
+  String? _friendId;
+  String? _friendName;
+  String? _lastFetchedFriendId;
+  FriendMoodViewData? _friendView;
   bool _rendering = false;
   String? _lastError;
   DateTime? _lastRenderedAt;
-  WidgetCacheStatus? _cacheStatus;
 
   Timer? _debounce;
   Timer? _minuteTimer;
   bool _refreshRunning = false;
   bool _disposed = false;
 
-  /// Ids de los amigos elegidos, en orden de aparición en el widget.
-  List<String> get friendIds => _friendIds;
-
-  /// Nombres de los amigos elegidos, alineados con [friendIds].
-  List<String> get friendNames => _friendNames;
-
-  /// Snapshot del amigo indicado (o null si aún no se cargó).
-  FriendMoodViewData? friendView(String id) => _friendViews[id];
-
-  /// Disposición elegida para el widget.
-  WidgetLayout get layout => _layout;
-
+  String? get friendId => _friendId;
+  String? get friendName => _friendName;
+  FriendMoodViewData? get friendView => _friendView;
   bool get rendering => _rendering;
   String? get lastError => _lastError;
   DateTime? get lastRenderedAt => _lastRenderedAt;
 
-  /// Foto real del cache del widget (leído del storage compartido, no
-  /// calculado). Null si aún no se leyó.
-  WidgetCacheStatus? get cacheStatus => _cacheStatus;
-
-  /// Lee de nuevo el cache del widget para la tarjeta de diagnóstico: sirve
-  /// tanto para ver lo que quedó guardado (aunque la app no haya publicado
-  /// todavía) como para confirmar que un write hizo roundtrip.
-  Future<void> refreshCacheStatus() async {
-    try {
-      _cacheStatus = await readWidgetCacheStatus();
-    } catch (_) {
-      _cacheStatus = null;
-    }
-    notifyListeners();
-  }
-
-  bool get hasFriends => _friendIds.isNotEmpty;
+  bool get hasFriend => _friendId != null && _friendId!.isNotEmpty;
 
   void _scheduleOnChange() {
     moodProvider.addListener(_onDataChanged);
@@ -105,149 +80,116 @@ class WidgetComparisonService extends ChangeNotifier {
     });
   }
 
-  /// Carga la configuración guardada (amigos, disposición y snapshots) y
-  /// publica la escena actual. Se invoca al crear el servicio.
+  /// Carga la configuración guardada (amigo elegido + snapshot) y publica la
+  /// escena actual. Se invoca al crear el servicio.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    _layout = widgetLayoutFromKey(prefs.getString(kWidgetPrefLayout));
-
-    var ids = _jsonStringList(prefs.getString(kWidgetPrefFriendIds));
-    var names = _jsonStringList(prefs.getString(kWidgetPrefFriendNames));
-
-    // Migración: instalaciones viejas guardaban un solo amigo en claves
-    // planas y su snapshot en otras dos.
-    final legacyId = _nonEmpty(prefs.getString(kWidgetPrefFriendId));
-    if (ids.isEmpty && legacyId != null) {
-      ids = [legacyId];
-      names = [_nonEmpty(prefs.getString(kWidgetPrefFriendName)) ?? '—'];
-    }
-    if (ids.length != names.length) names = List.filled(ids.length, '—');
-
-    final snapshotsJson = prefs.getString(kWidgetPrefFriendSnapshots);
-    if (snapshotsJson != null) {
+    _friendId = _nonEmpty(prefs.getString(kWidgetPrefFriendId));
+    _friendName = _nonEmpty(prefs.getString(kWidgetPrefFriendName));
+    final entriesJson = prefs.getString(kWidgetPrefFriendEntries);
+    final catalogJson = prefs.getString(kWidgetPrefFriendCatalog);
+    if (entriesJson != null && catalogJson != null) {
       try {
-        final map = jsonDecode(snapshotsJson) as Map<String, dynamic>;
-        for (final entry in map.entries) {
-          final raw = entry.value as Map<String, dynamic>;
-          _friendViews[entry.key] = _snapshotFromJson(raw);
-        }
+        final entries = (jsonDecode(entriesJson) as List)
+            .map((e) => MoodEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+        final catalog = (jsonDecode(catalogJson) as List)
+            .map((e) => MoodType.fromJson(e as Map<String, dynamic>))
+            .toList();
+        _friendView = FriendMoodViewData(entries: entries, catalog: catalog);
+        _lastFetchedFriendId = _friendId;
       } catch (_) {
-        _friendViews.clear();
+        _friendView = null;
       }
     }
-    if (_friendViews.isEmpty && legacyId != null) {
-      // Snapshot legacy (entradas + catálogo del único amigo).
-      final entriesJson = prefs.getString(kWidgetPrefFriendEntries);
-      final catalogJson = prefs.getString(kWidgetPrefFriendCatalog);
-      if (entriesJson != null && catalogJson != null) {
-        try {
-          _friendViews[legacyId] = FriendMoodViewData(
-            entries: (jsonDecode(entriesJson) as List)
-                .map((e) => MoodEntry.fromJson(e as Map<String, dynamic>))
-                .toList(),
-            catalog: (jsonDecode(catalogJson) as List)
-                .map((e) => MoodType.fromJson(e as Map<String, dynamic>))
-                .toList(),
-          );
-        } catch (_) {}
-      }
-    }
-
-    _friendIds = ids;
-    _friendNames = names;
     notifyListeners();
-    // Re-fresca los snapshots de los amigos (con dirty-check) y publica la
-    // escena completa: las burbujas ajenas también se mantienen al día.
+    // Re-fresca el snapshot del amigo (con dirty-check) y publica la escena
+    // completa (igual que al volver a la app): la burbuja del amigo también
+    // se mantiene al día, no solo la mía.
     unawaited(refresh());
-    // Lee el cache ya guardado (previo a esta sesión): la pantalla de
-    // configuración enseguida muestra lo que el widget tiene de verdad.
-    unawaited(refreshCacheStatus());
     // Con amigo elegido, el widget se re-fresca solo cada minuto.
     _ensurePeriodicRefresh();
   }
 
-  /// Reemplaza la selección de amigos (hasta 2). Carga sus snapshots (del
-  /// cache, o remoto en cualquier otro caso) y re-publica la escena.
-  Future<void> setFriends(List<String> ids, List<String> names) async {
-    if (listEquals(ids, _friendIds) && listEquals(names, _friendNames)) {
-      return;
-    }
-    _friendIds = List.of(ids);
-    _friendNames = List.of(names);
+  /// Elige el amigo cuya burbuja se compara. Carga su snapshot (del último
+  /// amigo elegido si coincide, o remoto en cualquier otro caso) y
+  /// re-publica la escena.
+  Future<void> selectFriend(String? friendId, {String? displayName}) async {
+    if (friendId == _friendId && displayName == _friendName) return;
+    _friendId = friendId;
+    _friendName = displayName;
     _lastError = null;
     notifyListeners();
-    await _persist();
-    unawaited(refresh());
+    try {
+      if (friendId == null) {
+        _friendView = null;
+      } else if (_lastFetchedFriendId != friendId) {
+        _friendView = await fetchFriendMoodViewData(friendId);
+        _lastFetchedFriendId = friendId;
+        await _persistSnapshot();
+      }
+    } catch (_) {
+      _lastError = 'No se pudo cargar la burbuja del amigo. Revisa la conexión.';
+    }
+    await _persistSelection();
+    notifyListeners();
+    unawaited(_publish());
     _ensurePeriodicRefresh();
-    if (ids.isNotEmpty) {
-      // (Re)planta el primer eslabón de la cadena de fondo.
+    if (friendId != null) {
+      // Elegir amigo (re)planta el primer eslabón de la cadena de fondo: si el
+      // one-off inicial de la sesión ya se consumió sin amigo, esta reanuda
+      // el refresco del widget con la app cerrada.
       unawaited(scheduleNextWidgetSync());
     }
   }
 
-  /// Cambia la disposición (horizontal/vertical) y re-publica la escena.
-  Future<void> setLayout(WidgetLayout layout) async {
-    if (_layout == layout) return;
-    _layout = layout;
+  Future<void> _persistSelection() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kWidgetPrefLayout, widgetLayoutKey(layout));
-    notifyListeners();
-    unawaited(_publish());
+    await prefs.setString(kWidgetPrefFriendId, _friendId ?? '');
+    await prefs.setString(kWidgetPrefFriendName, _friendName ?? '');
   }
 
-  Future<void> _persist() async {
+  Future<void> _persistSnapshot() async {
+    final view = _friendView;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kWidgetPrefLayout, widgetLayoutKey(_layout));
-    await prefs.setString(kWidgetPrefFriendIds, jsonEncode(_friendIds));
-    await prefs.setString(kWidgetPrefFriendNames, jsonEncode(_friendNames));
-    await _persistSnapshots(prefs);
-  }
-
-  Future<void> _persistSnapshots(SharedPreferences prefs) async {
-    final map = <String, dynamic>{};
-    for (final entry in _friendViews.entries) {
-      map[entry.key] = {
-        'entries': [
-          for (final e in entry.value.allEntries) e.toJson(),
-        ],
-        'catalog': [
-          for (final m in entry.value.catalogMoods) m.toJson(),
-        ],
-      };
+    if (view == null) {
+      await prefs.remove(kWidgetPrefFriendEntries);
+      await prefs.remove(kWidgetPrefFriendCatalog);
+      return;
     }
-    await prefs.setString(kWidgetPrefFriendSnapshots, jsonEncode(map));
+    final entries = jsonEncode([for (final e in view.allEntries) e.toJson()]);
+    final catalog = jsonEncode([for (final m in view.catalogMoods) m.toJson()]);
+    await prefs.setString(kWidgetPrefFriendEntries, entries);
+    await prefs.setString(kWidgetPrefFriendCatalog, catalog);
   }
 
   /// Fuerza una re-publicación inmediata (botón "Actualizar burbujas",
-  /// resume de la app, temporizador de cada minuto). Primero publica la escena
-  /// YA con lo que haya (mi burbuja + amigos del snapshot): el widget nunca
-  /// espera a la red para estrenarse o salir del placeholder. Después refresca
-  /// los snapshots remotos de los amigos (solo si su fingerprint cambió) y, si
-  /// cambió alguno, re-publica. Si la red falla, se conserva el snapshot
-  /// guardado. Si ya hay una ejecución en curso, la nueva llamada se descarta
-  /// (evita solapamientos).
+  /// resume de la app, temporizador de cada minuto). Antes de renderizar
+  /// re-fresca el snapshot remoto del amigo (solo si su fingerprint cambió):
+  /// así SU burbuja también se mantiene al día, no solo la mía. Si la red
+  /// falla, se conserva el último snapshot guardado. Si ya hay una ejecución
+  /// en curso, la nueva llamada se descarta (evita solapamientos al soltar
+  /// varias fuentes).
   Future<void> refresh() async {
     if (_refreshRunning) return;
     _refreshRunning = true;
     try {
       _debounce?.cancel();
       _debounce = null;
+      await _maybeRefreshFriendSnapshot();
       await _publish();
-      final friendsChanged = await _maybeRefreshFriendSnapshots();
-      if (friendsChanged) {
-        await _publish();
-      }
     } finally {
       _refreshRunning = false;
     }
   }
 
-  /// Actualiza las burbujas del widget automáticamente cada minuto mientras
-  /// la app está en primer plano Y hay amigo elegido.
+  /// Actualiza las dos burbujas del widget automáticamente cada minuto
+  /// mientras la app está en primer plano Y hay amigo elegido (sin amigo el
+  /// widget solo muestra "mía", que ya se publica en cada cambio/resume).
   static const Duration _periodicRefreshPeriod = Duration(minutes: 1);
 
   void _ensurePeriodicRefresh() {
-    if (!hasFriends) {
+    if (!hasFriend) {
       _minuteTimer?.cancel();
       _minuteTimer = null;
       return;
@@ -259,57 +201,47 @@ class WidgetComparisonService extends ChangeNotifier {
     });
   }
 
-  /// Trae de nuevo los snapshots remotos de los amigos elegidos y los
-  /// persiste SOLO si su fingerprint difiere del local: ~1 consulta ligera +
-  /// un catálogo diminuto por amigo y minuto en vez del historial completo.
-  /// No se lanza en cada toque mío (sería una consulta por mutación): corre
-  /// al arrancar la app, al volver a ella, en el botón "Actualizar burbujas"
-  /// y al tocar un amigo. Si la red falla se conserva el snapshot previo.
-  /// Devuelve `true` si algún snapshot cambió (para que el llamador republique).
-  /// Cada consulta lleva un timeout duro: una red colgada no puede bloquear
-  /// la publicación del widget (que corre aparte, por eso `refresh` publica
-  /// ANTES de llamar a esto).
-  Future<bool> _maybeRefreshFriendSnapshots() async {
-    if (_friendIds.isEmpty) {
-      _friendViews.clear();
+  /// Trae de nuevo el snapshot remoto del amigo elegido (registros +
+  /// catálogo) y lo persiste SOLO si su fingerprint remoto difiere del local:
+  /// registra ~1 consulta ligera + el catálogo diminuto por minuto en vez del
+  /// historial completo. No se lanza en cada toque mío (sería una consulta
+  /// por mutación): corre al arrancar la app, al volver a ella y en el botón
+  /// "Actualizar burbujas". Si la red falla se conserva el snapshot previo
+  /// para que el widget siga mostrando el último dato conocido en vez de
+  /// quedarse en blanco.
+  Future<void> _maybeRefreshFriendSnapshot() async {
+    final id = _friendId;
+    _lastError = null;
+    if (id == null || id.isEmpty) {
+      _friendView = null;
       notifyListeners();
-      return false;
+      return;
     }
-    var anyFailed = false;
-    var changed = false;
-    for (final id in _friendIds) {
-      try {
-        final freshFingerprint = await friendDataFingerprint(id)
-            .timeout(const Duration(seconds: 8));
-        final current = _friendViews[id];
-        final stale = current == null ||
-            friendViewFingerprint(current) != freshFingerprint;
-        if (stale) {
-          _friendViews[id] = await fetchFriendMoodViewData(id)
-              .timeout(const Duration(seconds: 8));
-          final prefs = await SharedPreferences.getInstance();
-          await _persistSnapshots(prefs);
-          changed = true;
-        }
-      } catch (_) {
-        // Red caída: el widget sigue con el snapshot guardado.
-        if (_friendViews[id] == null) {
-          anyFailed = true;
-        }
+    try {
+      final freshFingerprint = await friendDataFingerprint(id);
+      final current = _friendView;
+      final stale = current == null ||
+          friendViewFingerprint(current) != freshFingerprint;
+      if (stale) {
+        final fresh = await fetchFriendMoodViewData(id);
+        _friendView = fresh;
+        _lastFetchedFriendId = id;
+        await _persistSnapshot();
+      }
+    } catch (_) {
+      // Red caída: el widget sigue con el snapshot guardado.
+      if (_friendView == null) {
+        _lastError = 'No se pudo conectar para cargar la burbuja del amigo.';
       }
     }
-    if (anyFailed) {
-      _lastError = 'No se pudo conectar para cargar la burbuja del amigo.';
-    } else {
-      _lastError = null;
-    }
     notifyListeners();
-    return changed;
   }
 
-  /// Escribe el cache de la escena (burbujas de hoy + etiquetas + layout) y
-  /// le pide al widget que se repinte en nativo. No se rasteriza ningún PNG:
-  /// el AppWidget dibuja desde el cache con Kotlin.
+  /// Escribe el cache de la escena (colores de hoy + etiquetas) y le pide al
+  /// widget que se repinte en nativo. No se rasteriza ningún PNG: el AppWidget
+  /// dibuja desde el cache con Kotlin. De paso renueva el heartbeat de la app
+  /// en primer plano (la tarea de fondo WorkManager lo consulta para no
+  /// consumir el token compartido mientras esta app está activa).
   Future<void> _publish() async {
     if (_rendering) return;
     _rendering = true;
@@ -318,30 +250,20 @@ class WidgetComparisonService extends ChangeNotifier {
     try {
       await _touchHeartbeat();
       final today = DateTime.now();
-      final local =
-          LocalMoodViewData(provider: moodProvider, catalog: catalogProvider);
+      final local = LocalMoodViewData(provider: moodProvider, catalog: catalogProvider);
       final mine = dayBubbleData(local, today);
-      final bubbles = <({String label, DayBubbleData data})>[
-        (label: 'Yo', data: mine),
-      ];
-      for (var i = 0; i < _friendIds.length; i++) {
-        final view = _friendViews[_friendIds[i]];
-        bubbles.add((
-          label: _friendNames[i],
-          data: view == null
-              ? const DayBubbleData(colorsTopToBottom: [])
-              : dayBubbleData(view, today),
-        ));
-      }
+      final friendView = _friendView;
+      final friend = friendView == null
+          ? const DayBubbleData(colorsTopToBottom: [])
+          : dayBubbleData(friendView, today);
       await saveWidgetDateKey(widgetDateKey(today));
-      await saveWidgetScene(bubbles: bubbles, layout: _layout);
+      await saveWidgetMine(mine: mine);
+      await saveWidgetFriend(
+        friend: friend,
+        label: _friendName ?? '—',
+      );
       await refreshWidgetPreview();
       _lastRenderedAt = DateTime.now();
-      // Readback real del storage: si esto no se lee bien, el widget verá el
-      // placeholder. El diagnóstico de la pantalla lo muestra tal cual.
-      try {
-        _cacheStatus = await readWidgetCacheStatus();
-      } catch (_) {}
     } catch (_) {
       _lastError = 'No se pudo actualizar el widget.';
     } finally {
@@ -356,29 +278,6 @@ class WidgetComparisonService extends ChangeNotifier {
       kWidgetPrefAppActiveAt,
       DateTime.now().millisecondsSinceEpoch,
     );
-  }
-
-  static FriendMoodViewData _snapshotFromJson(Map<String, dynamic> raw) {
-    return FriendMoodViewData(
-      entries: (raw['entries'] as List)
-          .map((e) => MoodEntry.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      catalog: (raw['catalog'] as List)
-          .map((e) => MoodType.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  List<String> _jsonStringList(String? raw) {
-    if (raw == null) return const [];
-    try {
-      return [
-        for (final item in jsonDecode(raw) as List)
-          if (item is String && item.isNotEmpty) item,
-      ];
-    } catch (_) {
-      return const [];
-    }
   }
 
   String? _nonEmpty(String? value) =>

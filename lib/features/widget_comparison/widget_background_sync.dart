@@ -72,27 +72,16 @@ void widgetBackgroundCallbackDispatcher() {
 /// tarea no se re-agenda (no vale la pena despertar el dispositivo para un
 /// no-op) y main / la pantalla del widget la replantan al configurar uno.
 Future<bool> runWidgetBackgroundSync() async {
-  // Se decide tras conocer los amigos: mientras haya alguno, la cadena sigue.
+  // Se decide tras conocer el amigo: mientras haya uno, la cadena sigue.
   var keepChain = false;
   try {
     WidgetsFlutterBinding.ensureInitialized();
     if (!Env.isSupabaseConfigured) return false;
 
     final prefs = await SharedPreferences.getInstance();
-    var friendIds = _jsonStringList(prefs.getString(kWidgetPrefFriendIds));
-    var friendNames = _jsonStringList(prefs.getString(kWidgetPrefFriendNames));
-    // Migración: instalaciones viejas guardaban un solo amigo en claves
-    // planas.
-    final legacyId = prefs.getString(kWidgetPrefFriendId) ?? '';
-    if (friendIds.isEmpty && legacyId.isNotEmpty) {
-      friendIds = [legacyId];
-      friendNames = [prefs.getString(kWidgetPrefFriendName) ?? '—'];
-    }
-    if (friendIds.length != friendNames.length) {
-      friendNames = List.filled(friendIds.length, '—');
-    }
-    if (friendIds.isEmpty) return true;
-    final layout = widgetLayoutFromKey(prefs.getString(kWidgetPrefLayout));
+    final friendId = prefs.getString(kWidgetPrefFriendId) ?? '';
+    final friendName = prefs.getString(kWidgetPrefFriendName) ?? '—';
+    if (friendId.isEmpty) return true;
     keepChain = true;
 
     // Si la app estuvo activa recientemente, el widget ya se mantiene al día
@@ -132,6 +121,8 @@ Future<bool> runWidgetBackgroundSync() async {
       return true;
     }
 
+    final friendMood = await fetchFriendMoodViewData(friendId, client: client);
+
     final today = DateTime.now();
     final dateKey = widgetDateKey(today);
     // La fecha se lee del MISMO store donde la escribe la app
@@ -140,29 +131,16 @@ Future<bool> runWidgetBackgroundSync() async {
     // corrida. Esta clave no existe en prefs planas.
     final currentDateKey =
         await HomeWidget.getWidgetData<String?>(kWidgetDateKey);
-    // Burbuja propia: la app siempre la publica estando en primer plano; en
-    // segundo plano no se puede recalcular. Si el día NO cambió se conserva
-    // la que dejó la app, y si cambió se deja vacía hasta que se abra.
-    final bubbles = <({String label, DayBubbleData data})>[];
-    final storedMine = await _storedMineBubble();
-    if (currentDateKey == dateKey && storedMine != null) {
-      bubbles.add(storedMine);
-    } else {
-      bubbles.add((
-        label: 'Yo',
-        data: const DayBubbleData(colorsTopToBottom: []),
-      ));
-    }
-    for (var i = 0; i < friendIds.length; i++) {
-      final friendMood =
-          await fetchFriendMoodViewData(friendIds[i], client: client);
-      bubbles.add((
-        label: friendNames[i],
-        data: dayBubbleData(friendMood, today),
-      ));
+    // El día cambió sin abrir la app: la burbuja propia no se puede
+    // recalcular en segundo plano → se deja vacía hasta que se abra.
+    if (currentDateKey != dateKey) {
+      await saveWidgetMine();
     }
     await saveWidgetDateKey(dateKey);
-    await saveWidgetScene(bubbles: bubbles, layout: layout);
+    await saveWidgetFriend(
+      friend: dayBubbleData(friendMood, today),
+      label: friendName,
+    );
     await refreshWidgetPreview();
     return true;
   } catch (_) {
@@ -170,7 +148,7 @@ Future<bool> runWidgetBackgroundSync() async {
     return true;
   } finally {
     // Re-agenda SIEMPRE (éxito y errores): la cadena nunca se muere sola
-    // mientras haya amigos. `replace` evita apilar eslabones; sin red o con
+    // mientras haya amigo. `replace` evita apilar eslabones; sin red o con
     // tokens rotos el siguiente eslabón reintentará más tarde. Un fallo al
     // agendar no debe marcar fallida una corrida que ya refrescó bien: la
     // excepción se traga (el cache quedó escrito).
@@ -180,47 +158,4 @@ Future<bool> runWidgetBackgroundSync() async {
       } catch (_) {}
     }
   }
-}
-
-List<String> _jsonStringList(String? raw) {
-  if (raw == null) return const [];
-  try {
-    return [
-      for (final item in jsonDecode(raw) as List)
-        if (item is String && item.isNotEmpty) item,
-    ];
-  } catch (_) {
-    return const [];
-  }
-}
-
-/// Lee la burbuja "mía" (la 1.ª del array) que dejó la app publicada en el
-/// widget storage, para conservarla cuando el día no cambió. Devuelve null si
-/// aún no hay nada publicado.
-Future<({String label, DayBubbleData data})?> _storedMineBubble() async {
-  final json = await HomeWidget.getWidgetData<String?>(kWidgetBubblesJson);
-  if (json == null) return null;
-  try {
-    final array = jsonDecode(json) as List;
-    if (array.isEmpty) return null;
-    final map = array.first as Map<String, dynamic>;
-    return (
-      label: map['l'] as String? ?? 'Yo',
-      data: _bubbleDataFromJson(map),
-    );
-  } catch (_) {
-    return null;
-  }
-}
-
-DayBubbleData _bubbleDataFromJson(Map<String, dynamic> map) {
-  final colors = <Color>[];
-  final aura = <Color>[];
-  for (final c in map['c'] as List? ?? const []) {
-    colors.add(Color((c as num).toInt()));
-  }
-  for (final a in map['a'] as List? ?? const []) {
-    aura.add(Color((a as num).toInt()));
-  }
-  return DayBubbleData(colorsTopToBottom: colors, auraColors: aura);
 }
