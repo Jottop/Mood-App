@@ -1,13 +1,13 @@
 ﻿{
-    "versionName":  "0.4.7",
-    "versionCode":  20,
+    "versionName":  "0.4.8",
+    "versionCode":  21,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "El inicio de sesión recuerda tu usuario en este dispositivo: solo tienes que escribir la contraseña.",
-                  "El widget del escritorio ahora muestra hasta 3 burbujas: la tuya y las de hasta 2 amigos.",
-                  "El widget se puede configurar en horizontal o en vertical (burbujas apiladas)."
+                  "Arreglo del widget del escritorio: si por cualquier motivo los datos no se pueden dibujar, ahora muestra el dibujo de guía en vez de quedar con el fondo vacío.",
+                  "El widget se refresca inmediatamente al colocarlo, para que las burbujas aparezcan al primer vistazo.",
+                  "Las burbujas vacías (día sin registros) se aprecian mejor sobre el fondo pastel."
               ],
     "sizeBytes":  57901522,
-    "sha256":  "20803196bb55fe8aef52326631fbef56ef4c7d94221bf34ed362baad66f23c6f",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.7/app-release.apk"
+    "sha256":  "12c4fee2f84541734580ed2b55e218994cf0c5ad6412dc46ea76dac07848edaa",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.8/app-release.apk"
 }

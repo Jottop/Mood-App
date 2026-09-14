@@ -1,7 +1,7 @@
 ﻿name: mood_app
 description: App para registrar y visualizar estados de ÃƒÆ’Ã‚Â¡nimo a lo largo del dÃƒÆ’Ã‚Â­a.
 publish_to: 'none'
-version: 0.4.7+20
+version: 0.4.8+21
 environment:
   sdk: '>=3.3.0 <4.0.0'
 

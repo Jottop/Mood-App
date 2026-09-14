@@ -36,9 +36,14 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
   }
 
   Future<void> _pinWidget(BuildContext context) async {
+    final service = context.read<WidgetComparisonService>();
     await HomeWidget.requestPinWidget(
       qualifiedAndroidName: 'com.example.mood_app.MoodComparisonProvider',
     );
+    // Re-publica el cache y le pide al sistema que repinte el widget recién
+    // colocado: asegura que el primer onUpdate ya tenga la escena (si no,
+    // mostraría el placeholder hasta el próximo refresco).
+    service.refresh();
     if (!context.mounted) return;
     showAppSnackBar(
       context,

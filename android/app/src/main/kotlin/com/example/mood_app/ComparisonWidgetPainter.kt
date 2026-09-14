@@ -14,6 +14,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,6 +48,7 @@ object ComparisonWidgetPainter {
   private const val SCALE = 2f
 
   private const val INK = 0xFF2B3A4A.toInt()
+  private const val TAG = "comparison_widget"
 
   private val RAINBOW = intArrayOf(
       0xFFFFB3C6.toInt(), 0xFFFFE29A.toInt(), 0xFFB9F0CB.toInt(),
@@ -66,7 +68,7 @@ object ComparisonWidgetPainter {
       private fun intArray(array: JSONArray?): IntArray {
         if (array == null) return IntArray(0)
         val out = IntArray(array.length())
-        for (i in out.indices) out[i] = array.getInt(i)
+        for (i in out.indices) out[i] = array.optInt(i, 0)
         return out
       }
     }
@@ -75,26 +77,46 @@ object ComparisonWidgetPainter {
   /**
    * Genera la escena completa. Los valores provienen del widget storage de
    * home_widget (nombres de clave en `widget_cache_store.dart`).
+   *
+   * Devuelve `null` si no hay burbujas que dibujar o si algo falla en el
+   * trazado: el llamador muestra el placeholder en vez de un lienzo en blanco
+   * (un bitmap transparente sobre el degradado queda como "widget vacío").
    */
-  fun draw(dateKey: String?, bubblesJson: String?, layoutJson: String?): Bitmap {
+  fun draw(dateKey: String?, bubblesJson: String?, layoutJson: String?): Bitmap? {
     val vertical = layoutJson == "v"
     val sceneW = if (vertical) SCENE_W_VERTICAL else SCENE_W_HORIZONTAL
     val sceneH = if (vertical) SCENE_H_VERTICAL else SCENE_H_HORIZONTAL
-    val bitmap = Bitmap.createBitmap(
-        (sceneW * SCALE).roundToInt(),
-        (sceneH * SCALE).roundToInt(),
-        Bitmap.Config.ARGB_8888,
-    )
+    val bubbles = parseBubbles(bubblesJson)
+    if (bubbles.isEmpty()) {
+      Log.w(TAG, "No hay burbujas para dibujar; layout=$layoutJson json=${bubblesJson?.take(120)}")
+      return null
+    }
+
+    val bitmap = try {
+      Bitmap.createBitmap(
+          (sceneW * SCALE).roundToInt(),
+          (sceneH * SCALE).roundToInt(),
+          Bitmap.Config.ARGB_8888,
+      )
+    } catch (_: Exception) {
+      Log.w(TAG, "No se pudo crear el bitmap de la escena")
+      return null
+    }
     val canvas = Canvas(bitmap)
     canvas.scale(SCALE, SCALE)
 
-    val bubbles = parseBubbles(bubblesJson)
     val isToday = dateKey == todayKey()
-    if (vertical) {
-      drawVertical(canvas, sceneW, sceneH, bubbles, isToday)
-    } else {
-      drawHorizontal(canvas, sceneW, sceneH, bubbles, isToday)
+    try {
+      if (vertical) {
+        drawVertical(canvas, sceneW, sceneH, bubbles, isToday)
+      } else {
+        drawHorizontal(canvas, sceneW, sceneH, bubbles, isToday)
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "El dibujo de la escena falló: ${e.message}")
+      return null
     }
+    Log.i(TAG, "Escena dibujada: ${bubbles.size} burbuja(s), layout=${if (vertical) 'v' else 'h'}, hoy=$isToday, date=$dateKey")
     return bitmap
   }
 
@@ -102,8 +124,19 @@ object ComparisonWidgetPainter {
     if (json.isNullOrBlank()) return emptyArray()
     return try {
       val arr = JSONArray(json)
-      Array(arr.length()) { i -> Bubble.from(arr.getJSONObject(i)) }
+      val out = ArrayList<Bubble>(arr.length())
+      for (i in 0 until arr.length()) {
+        // Un miembro inválido se salta; no tumba al resto de la escena.
+        val item = try {
+          arr.optJSONObject(i) ?: continue
+        } catch (_: Exception) {
+          continue
+        }
+        out.add(Bubble.from(item))
+      }
+      out.toTypedArray()
     } catch (_: Exception) {
+      Log.w(TAG, "No se pudo parsear el JSON de burbujas")
       emptyArray()
     }
   }
@@ -204,11 +237,12 @@ object ComparisonWidgetPainter {
     val centerY = d / 2f
     val r = d / 2f
 
-    // Cuerpo: leve tinte de vidrio hacia el borde.
+    // Cuerpo: leve tinte de vidrio hacia el borde (un poco más presente para
+    // que una burbuja vacía se note sobre el degradado pastel del widget).
     canvas.drawCircle(centerX, centerY, r, paint {
       shader = RadialGradient(
           centerX, centerY, r,
-          intArrayOf(white(0f), white(0.08f)),
+          intArrayOf(white(0f), white(0.14f)),
           floatArrayOf(0.5f, 1f),
           Shader.TileMode.CLAMP,
       )
@@ -225,7 +259,7 @@ object ComparisonWidgetPainter {
       maskFilter = BlurMaskFilter(d * 0.045f, BlurMaskFilter.Blur.NORMAL)
       shader = SweepGradient(
           centerX, centerY,
-          RAINBOW.map { withAlpha(it, 0.55f) }.toIntArray(),
+          RAINBOW.map { withAlpha(it, 0.6f) }.toIntArray(),
           RAINBOW_STOPS,
       )
     })
@@ -236,7 +270,7 @@ object ComparisonWidgetPainter {
       strokeWidth = d * 0.03f
       shader = SweepGradient(
           centerX, centerY,
-          RAINBOW.map { withAlpha(it, 0.25f) }.toIntArray(),
+          RAINBOW.map { withAlpha(it, 0.3f) }.toIntArray(),
           RAINBOW_STOPS,
       )
     })
