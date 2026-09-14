@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.4.3",
-    "versionCode":  16,
+    "versionName":  "0.4.4",
+    "versionCode":  17,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "Avisos (Deshacer, copias, errores) que nunca chocan con la pildora de amigos: se reposicionan solos segun donde esté la pildora. El boton \u0027Agregar estado\u0027 ahora esquiva la pildora igual. Todos los avisos con el mismo estilo claro flotante."
+                  "El aviso de Deshacer al borrar una emocion (crear/editar) ahora queda pegado abajo, igual que los de las listas del dia. Para que no se tape, el boton \u0027Agregar estado\u0027 sube y se mantiene por encima del aviso y de la pildora de amigos."
               ],
     "sizeBytes":  57671902,
-    "sha256":  "877ae95c3dac27305675d61822df4128d3bf004e6682e8c97ddeca759aa35f0e",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.3/app-release.apk"
+    "sha256":  "4c87112719b9075aab2f53a5355ff4d483d75c13f431df400ce1fd0fb5d1c73c",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.4/app-release.apk"
 }
