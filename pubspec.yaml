@@ -1,5 +1,5 @@
-name: mood_app
-description: App para registrar y visualizar estados de ÃƒÂ¡nimo a lo largo del dÃƒÂ­a.
+﻿name: mood_app
+description: App para registrar y visualizar estados de ÃƒÆ’Ã‚Â¡nimo a lo largo del dÃƒÆ’Ã‚Â­a.
 publish_to: 'none'
 version: 0.4.0+13
 environment:

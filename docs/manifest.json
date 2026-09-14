@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.3.0",
-    "versionCode":  12,
+    "versionName":  "0.4.0",
+    "versionCode":  13,
     "releaseDate":  "2026-09-13",
     "notes":  [
-                  "Splash de arranque en crema (color del logo) e icono centrado en la pantalla de carga"
+                  "Actualizacion dentro de la app: descarga con progreso e instalacion nativa (dialog de Android) sin salir al navegador"
               ],
-    "sizeBytes":  57523962,
-    "sha256":  "8e9bd999e9b7941f64e0e8c79ed5da3e12e8ccd2969360dab11e7fd3b81fd326",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.3.0/app-release.apk"
+    "sizeBytes":  57671902,
+    "sha256":  "562fe27dbc3c4c834948cace4335e9d51cc789744a2a80efdc02c8aa78917889",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.0/app-release.apk"
 }
