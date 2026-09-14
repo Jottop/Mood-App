@@ -42,8 +42,9 @@ const _homeBgPresets = <Color>[
   Color(0xFFFDE1C7), // durazno
 ];
 
-/// Editor del perfil propio: alias (lo que ven los amigos), avatar de fruta
-/// animada, colores de la píldora, y credenciales (usuario y contraseña).
+/// Editor del perfil propio: alias, avatar de fruta animada y los colores de
+/// tu perfil (inicial, fondo del avatar, cápsula del hub y fondo de la app).
+/// El acceso (usuario y contraseña) vive en Ajustes > Usuario y contraseña.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -53,8 +54,6 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _aliasController;
-  late final TextEditingController _usernameController;
-  late final TextEditingController _passwordController;
 
   late String? _avatar;
   late Color _pillBg;
@@ -62,18 +61,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late Color _homeBg;
 
   bool _savingProfile = false;
-  String? _usernameError;
-  bool _changingUsername = false;
-  String? _passwordError;
-  bool _changingPassword = false;
 
   @override
   void initState() {
     super.initState();
     final profile = context.read<AuthProvider>().profile;
     _aliasController = TextEditingController(text: profile?.alias ?? '');
-    _usernameController = TextEditingController(text: profile?.username ?? '');
-    _passwordController = TextEditingController();
     _avatar = profile?.avatar;
     _pillBg = profile?.pillBg ?? AppColors.cream;
     _pillFg = profile?.pillFg ?? AppColors.creamInk;
@@ -83,8 +76,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _aliasController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -113,78 +104,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Future<void> _changeUsername() async {
-    if (_changingUsername) return;
-    FocusScope.of(context).unfocus();
-    final auth = context.read<AuthProvider>();
-    final desired = _usernameController.text.trim().toLowerCase();
-    if (desired == (auth.profile?.username ?? '')) {
-      setState(() => _usernameError = null);
-      return;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('¿Cambiar tu usuario?'),
-        content: Text(
-          'Podrás iniciar sesión con «$desired» a partir de ahora. Tus amigos seguirán teniendo tu mismo código.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cambiar'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      _changingUsername = true;
-      _usernameError = null;
-    });
-    final error = await auth.changeUsername(desired);
-    if (!mounted) return;
-    setState(() {
-      _changingUsername = false;
-      _usernameError = error;
-    });
-    if (error == null) {
-      showAppSnackBar(
-        context,
-        content: const Text('Usuario actualizado.'),
-        duration: const Duration(seconds: 2),
-      );
-    }
-  }
-
-  Future<void> _changePassword() async {
-    if (_changingPassword) return;
-    FocusScope.of(context).unfocus();
-    final auth = context.read<AuthProvider>();
-    setState(() {
-      _changingPassword = true;
-      _passwordError = null;
-    });
-    final error = await auth.changePassword(_passwordController.text);
-    if (!mounted) return;
-    setState(() {
-      _changingPassword = false;
-      _passwordError = error;
-    });
-    if (error == null) {
-      _passwordController.clear();
-      showAppSnackBar(
-        context,
-        content: const Text('Contraseña actualizada.'),
-        duration: const Duration(seconds: 2),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,10 +128,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 90),
           children: [
-            const _SectionTitle('Tu avatar'),
-            const SizedBox(height: 8),
-            _avatarPicker(),
-            const SizedBox(height: 20),
             const _SectionTitle('Alias'),
             const SizedBox(height: 8),
             TextField(
@@ -226,70 +141,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onChanged: (_) => setState(() {}),
               ),
             ),
-            const SizedBox(height: 20),
-            const _SectionTitle('Colores de tu píldora'),
+            const SizedBox(height: 24),
+
+            const _SectionTitle('Tu avatar'),
+            const SizedBox(height: 8),
+            _avatarPicker(),
+            const SizedBox(height: 24),
+
+            const _SectionTitle('Colores'),
             const SizedBox(height: 4),
             const Text(
-              'Así te ven tus amigos en su píldora de amigos.',
+              'Colorea tu inicial, el fondo de tu avatar y la cápsula del hub. El perfil lo ven tus amigos; la cápsula solo se guarda en este dispositivo.',
               style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 12),
-            _ColorRow(
-                label: 'Color de fondo',
-                current: _pillBg,
-                presets: _bgPresets,
-                onPick: (c) => setState(() => _pillBg = c)),
-            const SizedBox(height: 14),
             _ColorRow(
                 label: 'Color de la inicial',
                 current: _pillFg,
                 presets: _fgPresets,
                 onPick: (c) => setState(() => _pillFg = c)),
-            const SizedBox(height: 16),
-            Center(child: _pillPreview()),
-            const SizedBox(height: 24),
-            const _SectionTitle('Fondo de tu perfil'),
-            const SizedBox(height: 4),
-            const Text(
-              'Es el fondo de tu Home y del perfil que ven tus amigos.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _ColorRow(
-                label: 'Color de fondo',
-                current: _homeBg,
-                presets: _homeBgPresets,
-                onPick: (c) => setState(() => _homeBg = c)),
-            const SizedBox(height: 16),
-            Container(
-              height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: AppColors.bgGradient(_homeBg),
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.cardLine),
-              ),
-              child: const Text(
-                'Así se ve tu fondo',
-                style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const _SectionTitle('Tu pastilla de amigos'),
-            const SizedBox(height: 4),
-            const Text(
-              'El color de la cápsula del hub de amigos. Solo se guarda en este dispositivo.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-            ),
-            const SizedBox(height: 12),
+                label: 'Color del fondo del avatar',
+                current: _pillBg,
+                presets: _bgPresets,
+                onPick: (c) => setState(() => _pillBg = c)),
+            const SizedBox(height: 14),
             ValueListenableBuilder<Color>(
               valueListenable: pillCapsuleBg,
               builder: (context, capsuleBg, _) => _ColorRow(
-                label: 'Color de la cápsula',
+                label: 'Color de la cápsula de amigos',
                 current: capsuleBg,
                 presets: _bgPresets,
                 onPick: savePillCapsuleBg,
@@ -300,7 +181,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'Se guarda al tocar, sin necesidad de pulsar «Guardar cambios».',
               style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
             ),
+            const SizedBox(height: 14),
+            _ColorRow(
+                label: 'Color del fondo de perfil',
+                current: _homeBg,
+                presets: _homeBgPresets,
+                onPick: (c) => setState(() => _homeBg = c)),
             const SizedBox(height: 24),
+
+            const _SectionTitle('Vista previa'),
+            const SizedBox(height: 8),
+            Center(child: _preview()),
+            const SizedBox(height: 24),
+
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -326,78 +219,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 28),
-            const _SectionTitle('Acceso'),
-            const SizedBox(height: 4),
-            const Text(
-              'Tu usuario es con el que inicias sesión. Cambiarlo también cambia el email interno de la cuenta.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _usernameController,
-              autocorrect: false,
-              enableSuggestions: false,
-              textCapitalization: TextCapitalization.none,
-              maxLength: 20,
-              decoration: _decoration(
-                label: 'Usuario',
-                icon: Icons.person_outline_rounded,
-                suffix: TextButton(
-                  onPressed: _changingUsername ? null : _changeUsername,
-                  child: _changingUsername
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.ink))
-                      : const Text('Cambiar',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ),
-            if (_usernameError != null) ...[
-              const SizedBox(height: 6),
-              Text(_usernameError!,
-                  style: const TextStyle(
-                      fontSize: 12.5, color: Color(0xFFB3261E))),
-            ],
-            const SizedBox(height: 18),
-            const Text('Nueva contraseña',
-                style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              maxLength: 60,
-              onSubmitted: (_) => _changePassword(),
-              decoration: _decoration(
-                label: 'Mínimo 6 caracteres',
-                icon: Icons.lock_outline_rounded,
-                suffix: TextButton(
-                  onPressed: _changingPassword ? null : _changePassword,
-                  child: _changingPassword
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.ink))
-                      : const Text('Cambiar',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ),
-            if (_passwordError != null) ...[
-              const SizedBox(height: 6),
-              Text(_passwordError!,
-                  style: const TextStyle(
-                      fontSize: 12.5, color: Color(0xFFB3261E))),
-            ],
           ],
         ),
       ),
@@ -439,38 +260,54 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return profile?.displayInitial ?? '?';
   }
 
-  Widget _pillPreview() {
+  Widget _preview() {
     final alias = _aliasController.text.trim();
     final initial =
         alias.isNotEmpty ? alias[0].toUpperCase() : _initialOfProfile();
     return ValueListenableBuilder<Color>(
       valueListenable: pillCapsuleBg,
       builder: (context, capsuleBg, _) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
-          color: capsuleBg,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.1),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: AppColors.bgGradient(_homeBg),
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.cardLine),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AvatarBadge(
-              size: 34,
-              background: _pillBg,
-              foreground: _pillFg,
-              avatar: _avatar,
-              initial: initial,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: capsuleBg,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.ink.withValues(alpha: 0.12),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            const SizedBox(width: 9),
-            const Icon(Icons.add_rounded, size: 20, color: AppColors.inkSoft),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AvatarBadge(
+                  size: 40,
+                  background: _pillBg,
+                  foreground: _pillFg,
+                  avatar: _avatar,
+                  initial: initial,
+                ),
+                const SizedBox(width: 9),
+                const Icon(Icons.add_rounded,
+                    size: 20, color: AppColors.inkSoft),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -479,14 +316,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   InputDecoration _decoration({
     required String label,
     required IconData icon,
-    Widget? suffix,
     String? counter,
     void Function(String)? onChanged,
   }) {
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, size: 20, color: AppColors.inkSoft),
-      suffixIcon: suffix,
       counterText: counter == null && onChanged == null ? '' : null,
       helperText: counter,
       helperStyle: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),

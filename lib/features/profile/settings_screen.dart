@@ -9,10 +9,11 @@ import '../../state/auth_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../widget_comparison/widget_comparison_screen.dart';
+import 'account_screen.dart';
 import 'edit_profile_screen.dart';
 
 /// Pantalla de ajustes (se abre desde la "tuerca" del home): editar el perfil
-/// (alias, avatar, colores de la píldora o credenciales), configurar e
+/// (alias, avatar y colores), cambiar el usuario y la contraseña, configurar e
 /// instalar el widget de comparación, buscar actualizaciones por el hub y
 /// cerrar la sesión.
 class SettingsScreen extends StatelessWidget {
@@ -44,9 +45,18 @@ class SettingsScreen extends StatelessWidget {
             _OptionTile(
               icon: Icons.person_outline_rounded,
               title: 'Editar perfil',
-              subtitle: 'Alias, avatar, colores de tu píldora, usuario y contraseña.',
+              subtitle: 'Alias, avatar y los colores de tu perfil.',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _OptionTile(
+              icon: Icons.key_rounded,
+              title: 'Usuario y contraseña',
+              subtitle: 'Cambia con qué credenciales inicias sesión.',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AccountScreen()),
               ),
             ),
             const SizedBox(height: 10),
