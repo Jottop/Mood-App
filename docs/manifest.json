@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.4.2",
-    "versionCode":  15,
-    "releaseDate":  "2026-09-13",
+    "versionName":  "0.4.3",
+    "versionCode":  16,
+    "releaseDate":  "2026-09-14",
     "notes":  [
-                  "Aviso de borrado y boton de Agregar estado mas abajo en la pantalla (no tan flotando arriba)"
+                  "Avisos (Deshacer, copias, errores) que nunca chocan con la pildora de amigos: se reposicionan solos segun donde esté la pildora. El boton \u0027Agregar estado\u0027 ahora esquiva la pildora igual. Todos los avisos con el mismo estilo claro flotante."
               ],
-    "sizeBytes":  57671906,
-    "sha256":  "521fe97b10cec16ab0e7294c7e7ba62e6a691b8e6d6e7eff6ab24d59f07f5bdb",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.2/app-release.apk"
+    "sizeBytes":  57671902,
+    "sha256":  "877ae95c3dac27305675d61822df4128d3bf004e6682e8c97ddeca759aa35f0e",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.3/app-release.apk"
 }
