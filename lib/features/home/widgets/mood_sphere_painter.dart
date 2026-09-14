@@ -138,7 +138,7 @@ class MoodSpherePainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: [
           Colors.white.withValues(alpha: 0.0),
-          Colors.white.withValues(alpha: 0.14),
+          Colors.white.withValues(alpha: 0.08),
         ],
         stops: const [0.5, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
@@ -157,7 +157,7 @@ class MoodSpherePainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.045)
       ..shader = ui.Gradient.sweep(center, [
-        for (final c in _rainbow) c.withValues(alpha: 0.6),
+        for (final c in _rainbow) c.withValues(alpha: 0.55),
       ], _rainbowStops);
     canvas.drawPath(annulus, sheen);
 
@@ -167,7 +167,7 @@ class MoodSpherePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = size.width * 0.03
       ..shader = ui.Gradient.sweep(center, [
-        for (final c in _rainbow) c.withValues(alpha: 0.3),
+        for (final c in _rainbow) c.withValues(alpha: 0.25),
       ], _rainbowStops);
     canvas.drawCircle(center, radius - size.width * 0.015, rim);
   }

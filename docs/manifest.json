@@ -1,13 +1,14 @@
 ﻿{
-    "versionName":  "0.4.8",
-    "versionCode":  21,
+    "versionName":  "0.4.9",
+    "versionCode":  22,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "Arreglo del widget del escritorio: si por cualquier motivo los datos no se pueden dibujar, ahora muestra el dibujo de guía en vez de quedar con el fondo vacío.",
-                  "El widget se refresca inmediatamente al colocarlo, para que las burbujas aparezcan al primer vistazo.",
-                  "Las burbujas vacías (día sin registros) se aprecian mejor sobre el fondo pastel."
+                  "El widget del escritorio vuelve al diseño clásico: la burbuja de cada emoción con sus colores y su etiqueta (la tuya como \"Yo\" y el nombre de cada amigo).",
+                  "Se pueden elegir hasta 2 amigos para comparar (1 a 3 burbujas).",
+                  "El widget se configura en horizontal (lado a lado) o vertical (apiladas).",
+                  "Nunca se queda con el fondo vacío: si no hay datos, muestra el dibujo de guía."
               ],
     "sizeBytes":  57901522,
-    "sha256":  "12c4fee2f84541734580ed2b55e218994cf0c5ad6412dc46ea76dac07848edaa",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.8/app-release.apk"
+    "sha256":  "b38427dd5315f08b1d89b8d1b25dc53ff76c5d2a4a27f2b5b2cdc0c022772b66",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.9/app-release.apk"
 }

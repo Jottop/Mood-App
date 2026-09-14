@@ -237,12 +237,12 @@ object ComparisonWidgetPainter {
     val centerY = d / 2f
     val r = d / 2f
 
-    // Cuerpo: leve tinte de vidrio hacia el borde (un poco más presente para
-    // que una burbuja vacía se note sobre el degradado pastel del widget).
+    // Cuerpo: leve tinte de vidrio hacia el borde (look de jabón del widget
+    // clásico, como en la app).
     canvas.drawCircle(centerX, centerY, r, paint {
       shader = RadialGradient(
           centerX, centerY, r,
-          intArrayOf(white(0f), white(0.14f)),
+          intArrayOf(white(0f), white(0.08f)),
           floatArrayOf(0.5f, 1f),
           Shader.TileMode.CLAMP,
       )
@@ -259,7 +259,7 @@ object ComparisonWidgetPainter {
       maskFilter = BlurMaskFilter(d * 0.045f, BlurMaskFilter.Blur.NORMAL)
       shader = SweepGradient(
           centerX, centerY,
-          RAINBOW.map { withAlpha(it, 0.6f) }.toIntArray(),
+          RAINBOW.map { withAlpha(it, 0.55f) }.toIntArray(),
           RAINBOW_STOPS,
       )
     })
@@ -270,7 +270,7 @@ object ComparisonWidgetPainter {
       strokeWidth = d * 0.03f
       shader = SweepGradient(
           centerX, centerY,
-          RAINBOW.map { withAlpha(it, 0.3f) }.toIntArray(),
+          RAINBOW.map { withAlpha(it, 0.25f) }.toIntArray(),
           RAINBOW_STOPS,
       )
     })
