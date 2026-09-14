@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/avatar.dart';
+import '../../data/pill_capsule_prefs.dart';
 import '../../state/auth_provider.dart';
 import '../moods/widgets/custom_color_picker.dart';
 
@@ -29,6 +30,18 @@ const _fgPresets = <Color>[
   Color(0xFF7A4EA5), // violeta
 ];
 
+/// Tonos suaves para el fondo del Home/perfil (el primero es el estándar).
+const _homeBgPresets = <Color>[
+  Color(0xFFEAF3FC), // bgTop (estándar)
+  Color(0xFFFBF3DE), // cream
+  Color(0xFFF8E1EC), // rosa pálido
+  Color(0xFFD6E8F9), // celeste
+  Color(0xFFE1F3E4), // verde pálido
+  Color(0xFFFCEAD6), // arena
+  Color(0xFFEDE4FA), // malva
+  Color(0xFFFDE1C7), // durazno
+];
+
 /// Editor del perfil propio: alias (lo que ven los amigos), avatar de fruta
 /// animada, colores de la píldora, y credenciales (usuario y contraseña).
 class EditProfileScreen extends StatefulWidget {
@@ -46,6 +59,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late String? _avatar;
   late Color _pillBg;
   late Color _pillFg;
+  late Color _homeBg;
 
   bool _savingProfile = false;
   String? _usernameError;
@@ -63,6 +77,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _avatar = profile?.avatar;
     _pillBg = profile?.pillBg ?? AppColors.cream;
     _pillFg = profile?.pillFg ?? AppColors.creamInk;
+    _homeBg = profile?.homeBg ?? AppColors.bgTop;
   }
 
   @override
@@ -83,6 +98,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       avatar: _avatar,
       pillBg: _pillBg,
       pillFg: _pillFg,
+      homeBg: _homeBg,
     );
     if (!mounted) return;
     setState(() => _savingProfile = false);
@@ -177,7 +193,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: AppColors.bgBottom,
         elevation: 0,
         title: const Text('Editar perfil',
-            style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
+            style:
+                TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
         iconTheme: const IconThemeData(color: AppColors.ink),
       ),
       body: Container(
@@ -196,7 +213,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 8),
             _avatarPicker(),
             const SizedBox(height: 20),
-
             const _SectionTitle('Alias'),
             const SizedBox(height: 8),
             TextField(
@@ -211,7 +227,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
             const _SectionTitle('Colores de tu píldora'),
             const SizedBox(height: 4),
             const Text(
@@ -219,35 +234,99 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 12),
-            _ColorRow(label: 'Color de fondo', current: _pillBg, presets: _bgPresets, onPick: (c) => setState(() => _pillBg = c)),
+            _ColorRow(
+                label: 'Color de fondo',
+                current: _pillBg,
+                presets: _bgPresets,
+                onPick: (c) => setState(() => _pillBg = c)),
             const SizedBox(height: 14),
-            _ColorRow(label: 'Color de la inicial', current: _pillFg, presets: _fgPresets, onPick: (c) => setState(() => _pillFg = c)),
+            _ColorRow(
+                label: 'Color de la inicial',
+                current: _pillFg,
+                presets: _fgPresets,
+                onPick: (c) => setState(() => _pillFg = c)),
             const SizedBox(height: 16),
             Center(child: _pillPreview()),
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 24),
+            const _SectionTitle('Fondo de tu perfil'),
+            const SizedBox(height: 4),
+            const Text(
+              'Es el fondo de tu Home y del perfil que ven tus amigos.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 12),
+            _ColorRow(
+                label: 'Color de fondo',
+                current: _homeBg,
+                presets: _homeBgPresets,
+                onPick: (c) => setState(() => _homeBg = c)),
+            const SizedBox(height: 16),
+            Container(
+              height: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: AppColors.bgGradient(_homeBg),
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.cardLine),
+              ),
+              child: const Text(
+                'Así se ve tu fondo',
+                style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const _SectionTitle('Tu pastilla de amigos'),
+            const SizedBox(height: 4),
+            const Text(
+              'El color de la cápsula del hub de amigos. Solo se guarda en este dispositivo.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<Color>(
+              valueListenable: pillCapsuleBg,
+              builder: (context, capsuleBg, _) => _ColorRow(
+                label: 'Color de la cápsula',
+                current: capsuleBg,
+                presets: _bgPresets,
+                onPick: savePillCapsuleBg,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Se guarda al tocar, sin necesidad de pulsar «Guardar cambios».',
+              style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: _savingProfile ? null : _saveProfile,
                 icon: _savingProfile
                     ? const SizedBox(
-                        width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.2, color: Colors.white),
                       )
                     : const Icon(Icons.check_rounded, size: 18),
-                label: const Text('Guardar cambios', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                label: const Text('Guardar cambios',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.ink,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.ink.withValues(alpha: 0.5),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),
             const SizedBox(height: 28),
-
             const _SectionTitle('Acceso'),
             const SizedBox(height: 4),
             const Text(
@@ -267,18 +346,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 suffix: TextButton(
                   onPressed: _changingUsername ? null : _changeUsername,
                   child: _changingUsername
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ink))
-                      : const Text('Cambiar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.ink))
+                      : const Text('Cambiar',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
             if (_usernameError != null) ...[
               const SizedBox(height: 6),
-              Text(_usernameError!, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB3261E))),
+              Text(_usernameError!,
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Color(0xFFB3261E))),
             ],
             const SizedBox(height: 18),
-
-            const Text('Nueva contraseña', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink)),
+            const Text('Nueva contraseña',
+                style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink)),
             const SizedBox(height: 4),
             TextField(
               controller: _passwordController,
@@ -291,14 +381,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 suffix: TextButton(
                   onPressed: _changingPassword ? null : _changePassword,
                   child: _changingPassword
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ink))
-                      : const Text('Cambiar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.ink))
+                      : const Text('Cambiar',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
             if (_passwordError != null) ...[
               const SizedBox(height: 6),
-              Text(_passwordError!, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB3261E))),
+              Text(_passwordError!,
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Color(0xFFB3261E))),
             ],
           ],
         ),
@@ -343,33 +441,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _pillPreview() {
     final alias = _aliasController.text.trim();
-    final initial = alias.isNotEmpty ? alias[0].toUpperCase() : _initialOfProfile();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AvatarBadge(
-            size: 34,
-            background: _pillBg,
-            foreground: _pillFg,
-            avatar: _avatar,
-            initial: initial,
-          ),
-          const SizedBox(width: 9),
-          const Icon(Icons.add_rounded, size: 20, color: AppColors.inkSoft),
-        ],
+    final initial =
+        alias.isNotEmpty ? alias[0].toUpperCase() : _initialOfProfile();
+    return ValueListenableBuilder<Color>(
+      valueListenable: pillCapsuleBg,
+      builder: (context, capsuleBg, _) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: capsuleBg,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.ink.withValues(alpha: 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AvatarBadge(
+              size: 34,
+              background: _pillBg,
+              foreground: _pillFg,
+              avatar: _avatar,
+              initial: initial,
+            ),
+            const SizedBox(width: 9),
+            const Icon(Icons.add_rounded, size: 20, color: AppColors.inkSoft),
+          ],
+        ),
       ),
     );
   }
@@ -415,7 +517,8 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
+      style: const TextStyle(
+          fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
     );
   }
 }
@@ -497,7 +600,11 @@ class _ColorRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 9,
@@ -531,7 +638,8 @@ class _ColorRow extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.cardLine),
                 ),
-                child: const Icon(Icons.add_rounded, size: 20, color: AppColors.inkSoft),
+                child: const Icon(Icons.add_rounded,
+                    size: 20, color: AppColors.inkSoft),
               ),
             ),
           ],

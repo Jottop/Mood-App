@@ -200,7 +200,11 @@ class AuthProvider extends ChangeNotifier {
     final uid = _auth.currentUser?.id;
     if (uid == null) return;
     final row = await withSupabaseTimeout(
-      () => Supabase.instance.client.from('profiles').select().eq('id', uid).single(),
+      () => Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', uid)
+          .single(),
     );
     _profile = Profile.fromMap(row);
     notifyListeners();
@@ -239,7 +243,8 @@ class AuthProvider extends ChangeNotifier {
   /// Crea la cuenta. Requiere "Confirm email" DESACTIVADO en Supabase Auth,
   /// así el `signUp` devuelve la sesión ya iniciada. Devuelve null si todo
   /// salió bien, o un mensaje de error traducible a la UI.
-  Future<String?> signUp({required String username, required String password}) async {
+  Future<String?> signUp(
+      {required String username, required String password}) async {
     final usernameKey = normalizeUsername(username);
     final usernameError = validateUsername(usernameKey);
     if (usernameError != null) return usernameError;
@@ -268,7 +273,8 @@ class AuthProvider extends ChangeNotifier {
 
   /// Inicia sesión con usuario + contraseña. Devuelve null o un mensaje de
   /// error.
-  Future<String?> signIn({required String username, required String password}) async {
+  Future<String?> signIn(
+      {required String username, required String password}) async {
     final usernameKey = normalizeUsername(username);
     if (usernameKey.isEmpty) return 'Escribe tu usuario.';
     try {
@@ -298,27 +304,30 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Actualiza la personalización del perfil que ven los amigos: alias
-  /// (opcional), avatar de fruta animada y colores de la píldora. Devuelve
-  /// un mensaje de error o null si salió bien.
+  /// (opcional), avatar de fruta animada, colores de la píldora y el color
+  /// de fondo del Home/perfil. Devuelve un mensaje de error o null si salió
+  /// bien.
   Future<String?> updateProfile({
     String? alias,
     String? avatar,
     Color? pillBg,
     Color? pillFg,
+    Color? homeBg,
   }) async {
     final uid = _auth.currentUser?.id;
     if (uid == null) return _networkError;
     final cleanAlias = alias?.trim();
     try {
-      await withSupabaseTimeout(() => Supabase.instance.client
-          .from('profiles')
-          .update({
-            'alias': cleanAlias == null || cleanAlias.isEmpty ? null : cleanAlias,
-            'avatar': avatar,
-            if (pillBg != null) 'pill_bg': pillBg.toARGB32(),
-            if (pillFg != null) 'pill_fg': pillFg.toARGB32(),
-          })
-          .eq('id', uid));
+      await withSupabaseTimeout(
+          () => Supabase.instance.client.from('profiles').update({
+                'alias': cleanAlias == null || cleanAlias.isEmpty
+                    ? null
+                    : cleanAlias,
+                'avatar': avatar,
+                if (pillBg != null) 'pill_bg': pillBg.toARGB32(),
+                if (pillFg != null) 'pill_fg': pillFg.toARGB32(),
+                if (homeBg != null) 'home_bg': homeBg.toARGB32(),
+              }).eq('id', uid));
       final current = _profile;
       if (current != null) {
         _profile = Profile(
@@ -329,6 +338,7 @@ class AuthProvider extends ChangeNotifier {
           avatar: avatar ?? current.avatar,
           pillBg: pillBg ?? current.pillBg,
           pillFg: pillFg ?? current.pillFg,
+          homeBg: homeBg ?? current.homeBg,
           createdAt: current.createdAt,
         );
         notifyListeners();
@@ -359,8 +369,7 @@ class AuthProvider extends ChangeNotifier {
       if (uid != null) {
         await withSupabaseTimeout(() => Supabase.instance.client
             .from('profiles')
-            .update({'username': key})
-            .eq('id', uid));
+            .update({'username': key}).eq('id', uid));
       }
       if (current != null) {
         _profile = Profile(
@@ -371,6 +380,7 @@ class AuthProvider extends ChangeNotifier {
           avatar: current.avatar,
           pillBg: current.pillBg,
           pillFg: current.pillFg,
+          homeBg: current.homeBg,
           createdAt: current.createdAt,
         );
         notifyListeners();
@@ -389,7 +399,8 @@ class AuthProvider extends ChangeNotifier {
       return 'La contraseña debe tener al menos 6 caracteres.';
     }
     try {
-      await withSupabaseTimeout(() => _auth.updateUser(UserAttributes(password: password)));
+      await withSupabaseTimeout(
+          () => _auth.updateUser(UserAttributes(password: password)));
       return null;
     } on AuthException catch (e) {
       return _mapAuthError(e);
@@ -404,13 +415,18 @@ class AuthProvider extends ChangeNotifier {
   String _mapAuthError(AuthException e) {
     final code = e.code ?? '';
     final message = e.message.toLowerCase();
-    if (code == 'user_already_exists' || code == 'email_exists' || message.contains('registered')) {
+    if (code == 'user_already_exists' ||
+        code == 'email_exists' ||
+        message.contains('registered')) {
       return 'Ese usuario ya existe. Prueba con otro nombre.';
     }
-    if (code == 'weak_password' || message.contains('weak password') || message.contains('should be at least')) {
+    if (code == 'weak_password' ||
+        message.contains('weak password') ||
+        message.contains('should be at least')) {
       return 'La contraseña es muy corta (mínimo 6 caracteres).';
     }
-    if (code == 'invalid_credentials' || message.contains('invalid login credentials')) {
+    if (code == 'invalid_credentials' ||
+        message.contains('invalid login credentials')) {
       return 'Usuario o contraseña incorrectos.';
     }
     if (message.contains('user not found')) {

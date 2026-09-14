@@ -71,17 +71,24 @@ class FriendsProvider extends ChangeNotifier {
     }
     final profiles = await _client
         .from('profiles')
-        .select('id, username, friend_code, alias, avatar, pill_bg, pill_fg, created_at')
+        .select(
+            'id, username, friend_code, alias, avatar, pill_bg, pill_fg, home_bg, created_at')
         .inFilter('id', friendIds);
-    final byId = {for (final p in profiles) p['id'] as String: Profile.fromMap(p)};
+    final byId = {
+      for (final p in profiles) p['id'] as String: Profile.fromMap(p)
+    };
     // Mantiene el orden de la relación (más nuevos primero).
-    return [for (final id in friendIds) if (byId[id] case final p?) p];
+    return [
+      for (final id in friendIds)
+        if (byId[id] case final p?) p
+    ];
   }
 
   /// Agrega un amigo por su código de 6 caracteres. Devuelve `true` si la
   /// amistad se creó, o el mensaje de error a mostrar.
   Future<String?> addFriendByCode(String code) async {
-    final normalized = code.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final normalized =
+        code.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
     if (normalized.length != 6) {
       return 'El código tiene 6 caracteres. Revisa que esté completo.';
     }

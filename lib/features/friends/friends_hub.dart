@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/friends_pill_scope.dart';
 import '../../data/models/profile.dart';
+import '../../data/pill_capsule_prefs.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
 import 'friend_profile_screen.dart';
@@ -29,7 +30,8 @@ class FriendsHubOverlay extends StatefulWidget {
   final GlobalKey<NavigatorState> navigator;
   final Widget child;
 
-  const FriendsHubOverlay({super.key, required this.navigator, required this.child});
+  const FriendsHubOverlay(
+      {super.key, required this.navigator, required this.child});
 
   @override
   State<FriendsHubOverlay> createState() => _FriendsHubOverlayState();
@@ -69,6 +71,8 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
     _loadPosition();
+    // Fondo de la cápsula guardado en este dispositivo (color SOLO local).
+    loadPillCapsuleBg();
   }
 
   @override
@@ -85,7 +89,8 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
 
   /// Orientación vigente: la del arrastre si estás moviendo, la del anclaje
   /// guardado si estás quieto.
-  bool get _vertical => _dragging ? _previewVertical : _edge != _PillEdge.center;
+  bool get _vertical =>
+      _dragging ? _previewVertical : _edge != _PillEdge.center;
 
   /// Recupera la posición guardada en este dispositivo.
   Future<void> _loadPosition() async {
@@ -153,7 +158,9 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
     final count = context.read<FriendsProvider>().friends.length;
     final visible = math.min(count, FriendsHubPill.maxFriends);
     final items = 1 + visible + (count > FriendsHubPill.maxFriends ? 1 : 0) + 1;
-    final gaps = math.max(0, visible - 1) + (count > FriendsHubPill.maxFriends ? 1 : 0) + 1;
+    final gaps = math.max(0, visible - 1) +
+        (count > FriendsHubPill.maxFriends ? 1 : 0) +
+        1;
     return 24 + items * 34.0 + gaps * 7.0 + 19.0;
   }
 
@@ -169,14 +176,15 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
 
   /// Actualiza el arrastre y en el mismo pase decide si la píldora debe
   /// verse vertical (costados) u horizontal (resto).
-  void _onDragMove(
-      Size screen, double topInset, double bottomInset, double bandTop, Offset newDrag) {
+  void _onDragMove(Size screen, double topInset, double bottomInset,
+      double bandTop, Offset newDrag) {
     final s = _sizeFor(_previewVertical);
     final w = s.width;
     final h = s.height;
     final bandHeight =
         math.max(0.0, screen.height - topInset - bottomInset - _vInset * 2 - h);
-    final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+    final base =
+        _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
     final maxLeft = math.max(_hInset, screen.width - w - _hInset);
     final left = (base.dx + newDrag.dx).clamp(_hInset, maxLeft);
     final cx = left + w / 2;
@@ -200,18 +208,19 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       case _PillEdge.left:
         return Offset(_hInset, bandTop + bandHeight * _fraction);
       case _PillEdge.right:
-        return Offset(screen.width - _hInset - w, bandTop + bandHeight * _fraction);
+        return Offset(
+            screen.width - _hInset - w, bandTop + bandHeight * _fraction);
     }
   }
 
   /// Al soltar el arrastre: recalcula el margen (izquierda/derecha o centro
   /// inferior), la orientación (vertical en el costado, horizontal al centro)
   /// y la altura vertical, y persiste la posición.
-  void _releaseDrag(
-      Size screen, double topInset, double bottomInset, double bandTop,
-      double bandHeight, double w, double h) {
+  void _releaseDrag(Size screen, double topInset, double bottomInset,
+      double bandTop, double bandHeight, double w, double h) {
     if (!mounted) return;
-    final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+    final base =
+        _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
     final maxLeft = math.max(_hInset, screen.width - w - _hInset);
     final fx = (base.dx + _drag.dx).clamp(_hInset, maxLeft);
     final maxTop = math.max(bandTop, bandTop + bandHeight);
@@ -278,7 +287,8 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
       final bandHeight = math.max(
           0.0, screen.height - topInset - bottomInset - _vInset * 2 - h);
 
-      final base = _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
+      final base =
+          _baseOffset(screen, topInset, bottomInset, bandTop, bandHeight, w, h);
       final maxLeft = math.max(_hInset, screen.width - w - _hInset);
       final maxTop = math.max(bandTop, bandTop + bandHeight);
       final left = (base.dx + _drag.dx).clamp(_hInset, maxLeft);
@@ -297,34 +307,35 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
             // el dedo) y hace un pequeño "dock" animado al soltar en un
             // borde o volver al centro.
             AnimatedPositioned(
-            duration: _dragging ? Duration.zero : const Duration(milliseconds: 240),
-            curve: Curves.easeOut,
-            left: left,
-            top: top,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onLongPressStart: (_) => setState(() {
-                _dragging = true;
-                _previewVertical = _edge != _PillEdge.center;
-              }),
-              onLongPressMoveUpdate: (details) => _onDragMove(
-                  screen, topInset, bottomInset, bandTop, details.offsetFromOrigin),
-              onLongPressEnd: (_) =>
-                  _releaseDrag(screen, topInset, bottomInset, bandTop, bandHeight, w, h),
-              onLongPressCancel: () => setState(() {
-                _dragging = false;
-                _drag = Offset.zero;
-              }),
-              child: Transform.scale(
-                scale: _dragging ? 1.04 : 1.0,
-                child: FriendsHubPill(
-                  key: _pillKey,
-                  navigator: widget.navigator,
-                  vertical: vertical,
+              duration:
+                  _dragging ? Duration.zero : const Duration(milliseconds: 240),
+              curve: Curves.easeOut,
+              left: left,
+              top: top,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onLongPressStart: (_) => setState(() {
+                  _dragging = true;
+                  _previewVertical = _edge != _PillEdge.center;
+                }),
+                onLongPressMoveUpdate: (details) => _onDragMove(screen,
+                    topInset, bottomInset, bandTop, details.offsetFromOrigin),
+                onLongPressEnd: (_) => _releaseDrag(
+                    screen, topInset, bottomInset, bandTop, bandHeight, w, h),
+                onLongPressCancel: () => setState(() {
+                  _dragging = false;
+                  _drag = Offset.zero;
+                }),
+                child: Transform.scale(
+                  scale: _dragging ? 1.04 : 1.0,
+                  child: FriendsHubPill(
+                    key: _pillKey,
+                    navigator: widget.navigator,
+                    vertical: vertical,
+                  ),
                 ),
               ),
             ),
-          ),
           ],
         ),
       );
@@ -362,9 +373,7 @@ class FriendsHubPill extends StatelessWidget {
 
     // Espaciado en el eje cruzado (9 alrededor del separador, 7 entre el
     // resto de círculos) y el separador transpuesto según la orientación.
-    Widget gap(double v) => vertical
-        ? SizedBox(height: v)
-        : SizedBox(width: v);
+    Widget gap(double v) => vertical ? SizedBox(height: v) : SizedBox(width: v);
 
     final children = <Widget>[
       AvatarBadge(
@@ -415,24 +424,27 @@ class FriendsHubPill extends StatelessWidget {
       _AddButton(navigator: navigator),
     ];
 
-    return Container(
-      padding: vertical
-          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 12)
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.16),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
+    return ValueListenableBuilder<Color>(
+      valueListenable: pillCapsuleBg,
+      builder: (context, capsuleBg, _) => Container(
+        padding: vertical
+            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 12)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: capsuleBg,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.ink.withValues(alpha: 0.16),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: vertical
+            ? Column(mainAxisSize: MainAxisSize.min, children: children)
+            : Row(mainAxisSize: MainAxisSize.min, children: children),
       ),
-      child: vertical
-          ? Column(mainAxisSize: MainAxisSize.min, children: children)
-          : Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 

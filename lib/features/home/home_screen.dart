@@ -14,6 +14,7 @@ import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../history/calendar_screen.dart';
+import '../friends/friend_profile_screen.dart';
 import '../moods/manage_moods_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import '../profile/settings_screen.dart';
@@ -83,16 +84,35 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
+  /// Deslizar a la izquierda desde el Home abre el perfil del primer amigo
+  /// (ciclo de amigos). Sin amigos no hace nada.
+  void _swipeToFirstFriend() {
+    final friendsProvider = context.read<FriendsProvider>();
+    if (friendsProvider.friends.isEmpty) return;
+    final first = friendsProvider.friends.first;
+    // La selección se ajusta DESDE el gesto (antes de navegar), no desde el
+    // ciclo de vida del route: notificar dentro de initState/dispose de la
+    // pantalla congela la app porque la píldora está por encima del Navigator.
+    friendsProvider.selectProfile(first.id);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: first)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Mi perfil para el color de fondo del Home (y del avatar de la esquina
+    // de la burbuja). El color viaja en el perfil, así todos lo ven.
+    final myProfile = context.watch<AuthProvider>().profile;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bgBottom],
+            colors: AppColors.bgGradient(myProfile?.homeBg),
           ),
         ),
         child: SafeArea(
@@ -117,9 +137,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final todaysAsc = provider.todaysEntriesAsc;
               final todaysDesc = provider.todaysEntriesDesc;
-              final todaysColors = todaysAsc
-                  .map((e) => catalog.byId(e.moodId).color)
-                  .toList();
+              final todaysColors =
+                  todaysAsc.map((e) => catalog.byId(e.moodId).color).toList();
               final todaysSpecial = todaysAsc
                   .where((e) => catalog.byId(e.moodId).isSpecial)
                   .map((e) => catalog.byId(e.moodId).color)
@@ -134,135 +153,164 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? 'Aún no registras cómo te sientes hoy'
                   : 'Ahora te sientes ${catalog.byId(todaysAsc.last.moodId).label.toLowerCase()}';
 
-              // Mi perfil para el avatar de la esquina de la burbuja.
-              final myProfile = context.watch<AuthProvider>().profile;
-
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                color: AppColors.ink,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
-                  children: [
-                    const _Header(),
-                    const SizedBox(height: 20),
-                    // La burbuja con mi avatar en la esquina superior
-                    // derecha de su bloque (sin pegarse a la esfera); el
-                    // toque abre la edición de mi perfil. La burbuja va en
-                    // un SizedBox a ancho completo para que la columna siga
-                    // centrada (dentro del Stack con alignment topRight la
-                    // columna tomaba su ancho natural y se corría a la
-                    // derecha).
-                    Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: MoodBubble(
-                            todayColors: todaysColors,
-                            label: bubbleLabel,
-                            specialColors: todaysSpecial,
-                          ),
-                        ),
-                        if (myProfile != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8, right: 8),
-                            child: FramedAvatar(
-                              size: 64,
-                              background: myProfile.pillBg,
-                              foreground: myProfile.pillFg,
-                              avatar: myProfile.avatar,
-                              initial: myProfile.displayInitial,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const EditProfileScreen(),
-                                ),
-                              ),
-                              tooltip: 'Editar mi perfil',
+              // GestureDetector horizontal: deslizar a la izquierda abre el
+              // primer amigo (ciclo hacia sus perfiles). El pull-to-refresh es
+              // vertical y sigue intacto, igual que los taps.
+              return GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if ((details.primaryVelocity ?? 0) < -350) {
+                    _swipeToFirstFriend();
+                  }
+                },
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
+                    children: [
+                      const _Header(),
+                      const SizedBox(height: 20),
+                      // La burbuja con mi avatar en la esquina superior
+                      // derecha de su bloque (sin pegarse a la esfera); el
+                      // toque abre la edición de mi perfil. La burbuja va en
+                      // un SizedBox a ancho completo para que la columna siga
+                      // centrada (dentro del Stack con alignment topRight la
+                      // columna tomaba su ancho natural y se corría a la
+                      // derecha).
+                      Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: MoodBubble(
+                              todayColors: todaysColors,
+                              label: bubbleLabel,
+                              specialColors: todaysSpecial,
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                  const _PromptCard(),
-                  const SizedBox(height: 22),
-                  // Fila sobre la grilla: acceso a la gestión de estados (ahora todo el
-                  // título es el botón), el historial (calendario) y el
-                  // reinicio del día, todo al mismo nivel.
-                  Padding(
-                    padding: const EdgeInsets.only(left: 2, right: 2, bottom: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ManageMoodsScreen()),
-                          ),
-                          icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.inkSoft),
-                          label: const Text(
-                            'Mis estados de ánimo',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: AppColors.card,
-                            side: const BorderSide(color: AppColors.cardLine),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                          if (myProfile != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, right: 8),
+                              child: FramedAvatar(
+                                size: 64,
+                                background: myProfile.pillBg,
+                                foreground: myProfile.pillFg,
+                                avatar: myProfile.avatar,
+                                initial: myProfile.displayInitial,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const EditProfileScreen(),
+                                  ),
+                                ),
+                                tooltip: 'Editar mi perfil',
                               ),
-                              tooltip: 'Historial',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                              icon: const Icon(Icons.calendar_today_rounded, size: 22, color: AppColors.inkSoft),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const _PromptCard(),
+                      const SizedBox(height: 22),
+                      // Fila sobre la grilla: acceso a la gestión de estados (ahora todo el
+                      // título es el botón), el historial (calendario) y el
+                      // reinicio del día, todo al mismo nivel.
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            left: 2, right: 2, bottom: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => const ManageMoodsScreen()),
+                              ),
+                              icon: const Icon(Icons.tune_rounded,
+                                  size: 16, color: AppColors.inkSoft),
+                              label: const Text(
+                                'Mis estados de ánimo',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: AppColors.card,
+                                side:
+                                    const BorderSide(color: AppColors.cardLine),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const CalendarScreen()),
+                                  ),
+                                  tooltip: 'Historial',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 36, minHeight: 36),
+                                  icon: const Icon(Icons.calendar_today_rounded,
+                                      size: 22, color: AppColors.inkSoft),
+                                ),
+                                if (todaysDesc.isNotEmpty)
+                                  IconButton(
+                                    onPressed: () =>
+                                        _confirmResetToday(context, provider),
+                                    tooltip: 'Reiniciar hoy',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 36, minHeight: 36),
+                                    icon: const Icon(Icons.restart_alt_rounded,
+                                        size: 22, color: AppColors.inkSoft),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      MoodPickerGrid(
+                        moods: catalog.moods,
+                        moodsCount: todaysCounts,
+                        onSelect: (moodId) =>
+                            _selectMood(context, provider, moodId),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(left: 2, right: 2, bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Hoy',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.ink),
                             ),
                             if (todaysDesc.isNotEmpty)
-                              IconButton(
-                                onPressed: () => _confirmResetToday(context, provider),
-                                tooltip: 'Reiniciar hoy',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                icon: const Icon(Icons.restart_alt_rounded, size: 22, color: AppColors.inkSoft),
+                              Text(
+                                '${todaysDesc.length} registro${todaysDesc.length > 1 ? 's' : ''}',
+                                style: const TextStyle(
+                                    fontSize: 12.5, color: AppColors.inkSoft),
                               ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      DayEntryList(
+                        entriesDesc: todaysDesc,
+                        date: DateTime.now(),
+                        emptyMessage:
+                            'Toca un estado de ánimo arriba para registrar el primero de hoy.',
+                      ),
+                    ],
                   ),
-                  MoodPickerGrid(
-                    moods: catalog.moods,
-                    moodsCount: todaysCounts,
-                    onSelect: (moodId) => _selectMood(context, provider, moodId),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 2, right: 2, bottom: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Hoy',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
-                        ),
-                        if (todaysDesc.isNotEmpty)
-                          Text(
-                            '${todaysDesc.length} registro${todaysDesc.length > 1 ? 's' : ''}',
-                            style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-                          ),
-                      ],
-                    ),
-                  ),
-                  DayEntryList(
-                    entriesDesc: todaysDesc,
-                    date: DateTime.now(),
-                    emptyMessage: 'Toca un estado de ánimo arriba para registrar el primero de hoy.',
-                  ),
-                  ],
                 ),
               );
             },
@@ -287,7 +335,10 @@ class _Header extends StatelessWidget {
           children: [
             const Text(
               'Tu día',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.ink),
+              style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink),
             ),
             const SizedBox(height: 2),
             Text(
@@ -307,7 +358,8 @@ class _Header extends StatelessWidget {
           tooltip: 'Ajustes',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          icon: const Icon(Icons.settings_rounded, size: 22, color: AppColors.inkSoft),
+          icon: const Icon(Icons.settings_rounded,
+              size: 22, color: AppColors.inkSoft),
         ),
       ],
     );
@@ -329,7 +381,8 @@ class _LoadRetryView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 42, color: AppColors.inkSoft),
+            const Icon(Icons.cloud_off_rounded,
+                size: 42, color: AppColors.inkSoft),
             const SizedBox(height: 14),
             Text(
               message,
@@ -339,13 +392,15 @@ class _LoadRetryView extends StatelessWidget {
             const SizedBox(height: 18),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.ink),
+              icon: const Icon(Icons.refresh_rounded,
+                  size: 18, color: AppColors.ink),
               label: const Text('Reintentar'),
               style: OutlinedButton.styleFrom(
                 backgroundColor: AppColors.card,
                 side: const BorderSide(color: AppColors.cardLine),
                 foregroundColor: AppColors.ink,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999)),
               ),
             ),
           ],
@@ -355,7 +410,8 @@ class _LoadRetryView extends StatelessWidget {
   }
 }
 
-Future<void> _selectMood(BuildContext context, MoodProvider provider, String moodId) async {
+Future<void> _selectMood(
+    BuildContext context, MoodProvider provider, String moodId) async {
   if (provider.todaysEntriesAsc.length >= MoodProvider.maxOptimalEntries) {
     final proceed = await showMoodLimitDialog(context);
     if (!proceed) return;
@@ -363,12 +419,14 @@ Future<void> _selectMood(BuildContext context, MoodProvider provider, String moo
   provider.addEntry(moodId);
 }
 
-Future<void> _confirmResetToday(BuildContext context, MoodProvider provider) async {
+Future<void> _confirmResetToday(
+    BuildContext context, MoodProvider provider) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('¿Borrar los registros de hoy?'),
-      content: const Text('Se eliminarán todos los estados de ánimo registrados hoy. Esta acción no se puede deshacer.'),
+      content: const Text(
+          'Se eliminarán todos los estados de ánimo registrados hoy. Esta acción no se puede deshacer.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

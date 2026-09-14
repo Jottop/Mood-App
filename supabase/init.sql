@@ -11,12 +11,14 @@ create table public.profiles (
   username    text not null unique,
   friend_code text not null unique,
   -- Personalización del perfil (visible por los amigos): alias opcional,
-  -- avatar 'fruit_0..fruit_4' (o null = inicial) y los colores de la
-  -- píldora (por defecto cream/creamInk de la app).
+  -- avatar 'fruit_0..fruit_4' (o null = inicial), los colores de la píldora
+  -- (por defecto cream/creamInk de la app) y el color de fondo del
+  -- Home/perfil (home_bg, por defecto bgTop).
   alias       text,
   avatar      text,
   pill_bg     bigint not null default 0xFFFBF3DE,
   pill_fg     bigint not null default 0xFF7A6A3F,
+  home_bg     bigint not null default 0xFFEAF3FC,
   created_at  timestamptz not null default now()
 );
 

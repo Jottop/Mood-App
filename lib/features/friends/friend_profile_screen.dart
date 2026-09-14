@@ -68,7 +68,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         return;
       }
       setState(() {
-        _error = 'No se pudo cargar la información de $_displayName. Revisa la conexión e inténtalo de nuevo.';
+        _error =
+            'No se pudo cargar la información de $_displayName. Revisa la conexión e inténtalo de nuevo.';
         _loading = false;
       });
     }
@@ -106,6 +107,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // El color de fondo es el del perfil que se está viendo (lo eligió el
+    // amigo; así cada quien ve el del otro).
+    final bgColors = AppColors.bgGradient(widget.friend.homeBg);
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, Object? result) {
@@ -116,32 +120,78 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.bgBottom,
+        backgroundColor: bgColors.last,
         appBar: AppBar(
-          backgroundColor: AppColors.bgBottom,
+          backgroundColor: bgColors.first,
           elevation: 0,
           title: Text(_displayName,
-              style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: AppColors.ink, fontWeight: FontWeight.w700)),
           iconTheme: const IconThemeData(color: AppColors.ink),
         ),
-        body: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.bgTop, AppColors.bgBottom],
+        // GestureDetector horizontal: ciclo entre perfiles de amigos
+        // (izquierda = siguiente, derecha = anterior; el primero a la
+        // derecha vuelve al Home). El pull-to-refresh es vertical y los taps
+        // siguen intactos.
+        body: GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity < -350) {
+              _swipeToFriend(next: true);
+            } else if (velocity > 350) {
+              _swipeToFriend(next: false);
+            }
+          },
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: bgColors,
+              ),
             ),
+            child: SafeArea(child: _buildBody()),
           ),
-          child: SafeArea(child: _buildBody()),
         ),
       ),
     );
   }
 
+  /// Navega al amigo siguiente/anterior (ciclo). La selección se ajusta
+  /// DESDE el gesto, antes de navegar (ver FriendsHubPill).
+  void _swipeToFriend({required bool next}) {
+    final friendsProvider = context.read<FriendsProvider>();
+    final friends = friendsProvider.friends;
+    if (friends.isEmpty) return;
+    final index = friends.indexWhere((f) => f.id == widget.friend.id);
+    if (next) {
+      final nextFriend = friends[(index + 1) % friends.length];
+      friendsProvider.selectProfile(nextFriend.id);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+            builder: (_) => FriendProfileScreen(friend: nextFriend)),
+      );
+      return;
+    }
+    if (index <= 0) {
+      // Primero hacia la derecha: vuelvo a mi Home.
+      friendsProvider.selectProfile(null);
+      Navigator.of(context).pop();
+      return;
+    }
+    final prevFriend = friends[index - 1];
+    friendsProvider.selectProfile(prevFriend.id);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+          builder: (_) => FriendProfileScreen(friend: prevFriend)),
+    );
+  }
+
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.inkSoft));
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.inkSoft));
     }
     final error = _error;
     if (error != null) {
@@ -151,21 +201,25 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_rounded, size: 42, color: AppColors.inkSoft),
+              const Icon(Icons.cloud_off_rounded,
+                  size: 42, color: AppColors.inkSoft),
               const SizedBox(height: 14),
               Text(error,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: AppColors.inkSoft)),
+                  style:
+                      const TextStyle(fontSize: 14, color: AppColors.inkSoft)),
               const SizedBox(height: 18),
               OutlinedButton.icon(
                 onPressed: _load,
-                icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.ink),
+                icon: const Icon(Icons.refresh_rounded,
+                    size: 18, color: AppColors.ink),
                 label: const Text('Reintentar'),
                 style: OutlinedButton.styleFrom(
                   backgroundColor: AppColors.card,
                   side: const BorderSide(color: AppColors.cardLine),
                   foregroundColor: AppColors.ink,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999)),
                 ),
               ),
             ],
@@ -189,130 +243,149 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
         children: [
-        const Center(
-          child: Text(
-            'El resumen de hoy',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
+          const Center(
+            child: Text(
+              'El resumen de hoy',
+              style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // Misma disposición que la burbuja del Home (flotación + auras),
-        // pero con los datos del amigo: el bloque ocupa todo el ancho y la
-        // esfera queda centrada, así el avatar amarra a la esquina superior
-        // derecha de la pantalla, igual que en la burbuja propia, sin
-        // pegarse a la esfera.
-        Stack(
-          alignment: Alignment.topRight,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Center(
-                child: FloatingSphere(
-                  colors: dayBubbleData(view, today).colorsTopToBottom,
-                  auraColors: dayBubbleData(view, today).auraColors,
-                  size: 200,
-                  floatAmplitude: 12,
+          const SizedBox(height: 12),
+          // Misma disposición que la burbuja del Home (flotación + auras),
+          // pero con los datos del amigo: el bloque ocupa todo el ancho y la
+          // esfera queda centrada, así el avatar amarra a la esquina superior
+          // derecha de la pantalla, igual que en la burbuja propia, sin
+          // pegarse a la esfera.
+          Stack(
+            alignment: Alignment.topRight,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: Center(
+                  child: FloatingSphere(
+                    colors: dayBubbleData(view, today).colorsTopToBottom,
+                    auraColors: dayBubbleData(view, today).auraColors,
+                    size: 200,
+                    floatAmplitude: 12,
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 8, right: 8),
-              child: FramedAvatar(
-                size: 64,
-                background: widget.friend.pillBg,
-                foreground: widget.friend.pillFg,
-                avatar: widget.friend.avatar,
-                initial: widget.friend.displayInitial,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          bubbleLabel,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14.5, color: AppColors.inkSoft),
-        ),
-        if (todayAsc.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          MoodSummary(entriesAsc: todayAsc, view: view),
-        ],
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Hoy',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.end,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => CalendarScreen(
-                              view: view,
-                              readOnly: true,
-                              title: 'Calendario de $_displayName',
-                            ),
-                          ),
-                        ),
-                        icon: const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.inkSoft),
-                        label: const Text('Ver su historial',
-                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: AppColors.card,
-                          side: const BorderSide(color: AppColors.cardLine),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(0, 34),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _openCopyEmotions,
-                        icon: const Icon(Icons.emoji_emotions_outlined, size: 15, color: AppColors.inkSoft),
-                        label: const Text('Ver sus emociones',
-                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: AppColors.card,
-                          side: const BorderSide(color: AppColors.cardLine),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(0, 34),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (todayDesc.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      '${todayDesc.length} registro${todayDesc.length > 1 ? 's' : ''}',
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-                    ),
-                  ],
-                ],
+              Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: FramedAvatar(
+                  size: 64,
+                  background: widget.friend.pillBg,
+                  foreground: widget.friend.pillFg,
+                  avatar: widget.friend.avatar,
+                  initial: widget.friend.displayInitial,
+                ),
               ),
             ],
           ),
-        ),
-        DayEntryList(
-          entriesDesc: todayDesc,
-          date: today,
-          view: view,
-          readOnly: true,
-          emptyMessage: 'Aún no registró emociones hoy.',
-        ),
+          const SizedBox(height: 16),
+          Text(
+            bubbleLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14.5, color: AppColors.inkSoft),
+          ),
+          if (todayAsc.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            MoodSummary(entriesAsc: todayAsc, view: view),
+          ],
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Hoy',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CalendarScreen(
+                                view: view,
+                                readOnly: true,
+                                title: 'Calendario de $_displayName',
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.calendar_today_rounded,
+                              size: 15, color: AppColors.inkSoft),
+                          label: const Text('Ver su historial',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.ink)),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.card,
+                            side: const BorderSide(color: AppColors.cardLine),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 34),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _openCopyEmotions,
+                          icon: const Icon(Icons.emoji_emotions_outlined,
+                              size: 15, color: AppColors.inkSoft),
+                          label: const Text('Ver sus emociones',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.ink)),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.card,
+                            side: const BorderSide(color: AppColors.cardLine),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 34),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (todayDesc.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '${todayDesc.length} registro${todayDesc.length > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.inkSoft),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          DayEntryList(
+            entriesDesc: todayDesc,
+            date: today,
+            view: view,
+            readOnly: true,
+            emptyMessage: 'Aún no registró emociones hoy.',
+          ),
         ],
       ),
     );

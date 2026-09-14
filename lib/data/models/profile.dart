@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 /// Perfil público de un usuario. Su id es el de `auth.users` (Supabase) y
 /// lo que ven los amigos son [username], [friendCode] y [createdAt], más la
 /// personalización: [alias] (opcional), [avatar] (fruta animada o null =
-/// inicial) y los colores de la píldora ([pillBg]/[pillFg]) con los que cada
-/// quien ve el avatar del otro en el hub de amigos.
+/// inicial), los colores de la píldora ([pillBg]/[pillFg]) con los que cada
+/// quien ve el avatar del otro en el hub de amigos, y el color de fondo del
+/// Home/perfil ([homeBg]) que ve cada quien en su app y al abrir el perfil
+/// de un amigo.
 class Profile {
   final String id;
   final String username;
@@ -15,6 +17,7 @@ class Profile {
   final String? avatar;
   final Color pillBg;
   final Color pillFg;
+  final Color homeBg;
   final DateTime createdAt;
 
   const Profile({
@@ -25,6 +28,7 @@ class Profile {
     this.avatar,
     this.pillBg = const Color(0xFFFBF3DE),
     this.pillFg = const Color(0xFF7A6A3F),
+    this.homeBg = const Color(0xFFEAF3FC),
     required this.createdAt,
   });
 
@@ -40,6 +44,7 @@ class Profile {
       avatar: map['avatar'] as String?,
       pillBg: Color((map['pill_bg'] as int?) ?? 0xFFFBF3DE),
       pillFg: Color((map['pill_fg'] as int?) ?? 0xFF7A6A3F),
+      homeBg: Color((map['home_bg'] as int?) ?? 0xFFEAF3FC),
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
