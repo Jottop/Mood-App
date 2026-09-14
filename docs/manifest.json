@@ -1,13 +1,11 @@
 ﻿{
-    "versionName":  "0.4.5",
-    "versionCode":  18,
+    "versionName":  "0.4.6",
+    "versionCode":  19,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "Deslizar a la izquierda abre el perfil de tus amigos (ciclo: izquierda siguiente, derecha anterior y vuelta al inicio)",
-                  "Fondo del Home y del perfil con tu color propio (viaja en tu perfil: lo ven tus amigos)",
-                  "Color de la pastilla de amigos configurable, solo en tu dispositivo"
+                  "Reorganización de Editar perfil: alias arriba, luego avatar, una sección de colores (inicial, fondo del avatar, cápsula de amigos y fondo de perfil) y vista previa combinada al final. El usuario y la contraseña ahora se cambian desde Ajustes \u003e Usuario y contraseña."
               ],
-    "sizeBytes":  57835746,
-    "sha256":  "280d7dac80bb0b250f0d532a92f468f90d3f73296414591a24a6ccf95ed86861",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.5/app-release.apk"
+    "sizeBytes":  57835834,
+    "sha256":  "f0bd144f49cd62c5e80b46a3704740fa51972e0e8e0f094f415fae2bd93a33d3",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.6/app-release.apk"
 }
