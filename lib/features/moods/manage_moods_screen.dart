@@ -99,7 +99,7 @@ class ManageMoodsScreen extends StatelessWidget {
       // de TODAS las pantallas, así que el botón va elevado para nunca
       // quedar tapado ni rozarla.
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 96),
+        padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton.extended(
           backgroundColor: AppColors.ink,
           foregroundColor: Colors.white,

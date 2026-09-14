@@ -205,7 +205,7 @@ class _MoodEditorScreenState extends State<MoodEditorScreen> {
             // El FAB "Agregar estado" está elevado sobre la píldora de
             // amigos (96) y mide ~56: el aviso se eleva para no tapar el
             // botón ni quedar detrás de la píldora.
-            margin: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 164),
+            margin: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 148),
             // Barra clara (no opaca) para que no tape la lista de debajo.
             backgroundColor: AppColors.card,
             elevation: 6,
