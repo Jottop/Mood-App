@@ -1,11 +1,13 @@
 ﻿{
-    "versionName":  "0.4.4",
-    "versionCode":  17,
+    "versionName":  "0.4.5",
+    "versionCode":  18,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "El aviso de Deshacer al borrar una emocion (crear/editar) ahora queda pegado abajo, igual que los de las listas del dia. Para que no se tape, el boton \u0027Agregar estado\u0027 sube y se mantiene por encima del aviso y de la pildora de amigos."
+                  "Deslizar a la izquierda abre el perfil de tus amigos (ciclo: izquierda siguiente, derecha anterior y vuelta al inicio)",
+                  "Fondo del Home y del perfil con tu color propio (viaja en tu perfil: lo ven tus amigos)",
+                  "Color de la pastilla de amigos configurable, solo en tu dispositivo"
               ],
-    "sizeBytes":  57671902,
-    "sha256":  "4c87112719b9075aab2f53a5355ff4d483d75c13f431df400ce1fd0fb5d1c73c",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.4/app-release.apk"
+    "sizeBytes":  57835746,
+    "sha256":  "280d7dac80bb0b250f0d532a92f468f90d3f73296414591a24a6ccf95ed86861",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.5/app-release.apk"
 }
