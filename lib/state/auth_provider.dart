@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/profile.dart';
@@ -223,6 +224,22 @@ class AuthProvider extends ChangeNotifier {
   /// Normaliza el username a su forma canónica (minúsculas, sin espacios).
   static String normalizeUsername(String raw) => raw.trim().toLowerCase();
 
+  static const _rememberedUsernameKey = 'remembered_username';
+
+  /// Lee el usuario recordado para precargarlo en el login: así el usuario
+  /// vuelve a entrar escribiendo solo la contraseña.
+  static Future<String?> loadRememberedUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    final username = prefs.getString(_rememberedUsernameKey);
+    return username == null || username.isEmpty ? null : username;
+  }
+
+  /// Guarda (o sobreescribe) el usuario que se precargará en el login.
+  static Future<void> rememberUsername(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_rememberedUsernameKey, username);
+  }
+
   /// El email interno y determinista que usa Supabase para autenticar.
   static String emailForUsername(String username) => '$username@tu-dia.local';
 
@@ -263,6 +280,7 @@ class AuthProvider extends ChangeNotifier {
         return 'No se pudo iniciar sesión automáticamente. Asegúrate de que "Confirm email" esté '
             'desactivado en Supabase (Authentication → Sign In / Providers → Email).';
       }
+      await rememberUsername(usernameKey);
       return null;
     } on AuthException catch (e) {
       return _mapAuthError(e);
@@ -284,6 +302,7 @@ class AuthProvider extends ChangeNotifier {
           password: password,
         ),
       );
+      await rememberUsername(usernameKey);
       return null;
     } on AuthException catch (e) {
       return _mapAuthError(e);
@@ -371,6 +390,7 @@ class AuthProvider extends ChangeNotifier {
             .from('profiles')
             .update({'username': key}).eq('id', uid));
       }
+      await rememberUsername(key);
       if (current != null) {
         _profile = Profile(
           id: current.id,

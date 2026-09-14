@@ -63,7 +63,7 @@ class SettingsScreen extends StatelessWidget {
             _OptionTile(
               icon: Icons.widgets_outlined,
               title: 'Agregar widget',
-              subtitle: 'Compara tu burbuja de hoy con la de un amigo en el escritorio.',
+              subtitle: 'Compara tu burbuja de hoy con la de hasta 2 amigos, en horizontal o vertical.',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const WidgetComparisonScreen()),
               ),

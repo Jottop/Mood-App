@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _prefillRememberedUsername();
     // Si el arranque no pudo recuperar la sesión (el servidor rechazó el
     // token), mostramos un aviso breve antes de que el usuario vuelva a
     // entrar.
@@ -42,6 +43,14 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     });
+  }
+
+  /// Precarga el último usuario que inició sesión en este dispositivo: solo
+  /// hace falta escribir la contraseña.
+  Future<void> _prefillRememberedUsername() async {
+    final username = await AuthProvider.loadRememberedUsername();
+    if (!mounted || username == null) return;
+    _usernameController.text = username;
   }
 
   @override

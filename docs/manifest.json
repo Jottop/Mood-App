@@ -1,11 +1,13 @@
 ﻿{
-    "versionName":  "0.4.6",
-    "versionCode":  19,
+    "versionName":  "0.4.7",
+    "versionCode":  20,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "Reorganización de Editar perfil: alias arriba, luego avatar, una sección de colores (inicial, fondo del avatar, cápsula de amigos y fondo de perfil) y vista previa combinada al final. El usuario y la contraseña ahora se cambian desde Ajustes \u003e Usuario y contraseña."
+                  "El inicio de sesión recuerda tu usuario en este dispositivo: solo tienes que escribir la contraseña.",
+                  "El widget del escritorio ahora muestra hasta 3 burbujas: la tuya y las de hasta 2 amigos.",
+                  "El widget se puede configurar en horizontal o en vertical (burbujas apiladas)."
               ],
-    "sizeBytes":  57835834,
-    "sha256":  "f0bd144f49cd62c5e80b46a3704740fa51972e0e8e0f094f415fae2bd93a33d3",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.6/app-release.apk"
+    "sizeBytes":  57901522,
+    "sha256":  "20803196bb55fe8aef52326631fbef56ef4c7d94221bf34ed362baad66f23c6f",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.7/app-release.apk"
 }

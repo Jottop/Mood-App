@@ -10,11 +10,13 @@ import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import 'mood_comparison_scene.dart';
+import 'widget_cache_store.dart';
 import 'widget_comparison_service.dart';
 
-/// Configuración del widget de comparación del escritorio: elegir el amigo
-/// cuya burbuja se compara con la mía, ver una preview en vivo de la escena
-/// y pedirle al sistema instalar el AppWidget (pin nativo, Android 8+).
+/// Configuración del widget de comparación del escritorio: elegir hasta 2
+/// amigos cuya burbuja se compara con la mía, la disposición
+/// (horizontal/vertical), una preview en vivo de la escena y pedirle al
+/// sistema instalar el AppWidget (pin nativo, Android 8+).
 class WidgetComparisonScreen extends StatefulWidget {
   const WidgetComparisonScreen({super.key});
 
@@ -45,6 +47,27 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     );
   }
 
+  void _toggleFriend(WidgetComparisonService service, String id, String name) {
+    final ids = [...service.friendIds];
+    final names = [...service.friendNames];
+    final index = ids.indexOf(id);
+    if (index >= 0) {
+      ids.removeAt(index);
+      names.removeAt(index);
+    } else {
+      if (ids.length >= 2) {
+        showAppSnackBar(
+          context,
+          content: const Text('Máximo 2 amigos: el widget muestra hasta 3 burbujas.'),
+        );
+        return;
+      }
+      ids.add(id);
+      names.add(name);
+    }
+    service.setFriends(ids, names);
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = context.watch<WidgetComparisonService>();
@@ -53,11 +76,20 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     final catalog = context.read<MoodCatalogProvider>();
 
     final localView = LocalMoodViewData(provider: moodProvider, catalog: catalog);
-    final mine = dayBubbleData(localView, DateTime.now());
-    final friendView = service.friendView;
-    final friend = friendView == null
-        ? const DayBubbleData(colorsTopToBottom: [])
-        : dayBubbleData(friendView, DateTime.now());
+    final now = DateTime.now();
+    final bubbles = <DayBubbleData>[
+      dayBubbleData(localView, now),
+    ];
+    final labels = <String>['Yo'];
+    for (var i = 0; i < service.friendIds.length; i++) {
+      final view = service.friendView(service.friendIds[i]);
+      bubbles.add(
+        view == null
+            ? const DayBubbleData(colorsTopToBottom: [])
+            : dayBubbleData(view, now),
+      );
+      labels.add(service.friendNames[i]);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bgBottom,
@@ -90,10 +122,9 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
             ),
             const SizedBox(height: 10),
             MoodComparisonScene(
-              mine: mine,
-              friend: friend,
-              mineLabel: 'Yo',
-              friendLabel: service.friendName ?? '—',
+              bubbles: bubbles,
+              labels: labels,
+              layout: service.layout,
             ),
             const SizedBox(height: 12),
             if (service.lastError != null)
@@ -113,8 +144,59 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
               ),
             const SizedBox(height: 20),
             const Text(
-              '¿Quién comparas contigo?',
+              'Disposición',
               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Horizontal',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  selected: service.layout == WidgetLayout.horizontal,
+                  onSelected: (_) =>
+                      service.setLayout(WidgetLayout.horizontal),
+                  selectedColor: const Color(0xFFD3E4F6),
+                  backgroundColor: AppColors.card,
+                  avatar: const Icon(Icons.swap_horiz_rounded,
+                      size: 15, color: AppColors.inkSoft),
+                  side: const BorderSide(color: AppColors.cardLine),
+                  showCheckmark: false,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+                ChoiceChip(
+                  label: const Text('Vertical',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  selected: service.layout == WidgetLayout.vertical,
+                  onSelected: (_) => service.setLayout(WidgetLayout.vertical),
+                  selectedColor: const Color(0xFFD3E4F6),
+                  backgroundColor: AppColors.card,
+                  avatar: const Icon(Icons.swap_vert_rounded,
+                      size: 15, color: AppColors.inkSoft),
+                  side: const BorderSide(color: AppColors.cardLine),
+                  showCheckmark: false,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+              ],
+            ),
+            if (service.layout == WidgetLayout.vertical) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'En vertical, estira el widget en la pantalla de inicio para que las burbujas se vean apiladas y grandes.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.inkSoft),
+              ),
+            ],
+            const SizedBox(height: 22),
+            const Text(
+              '¿A quién comparas contigo?',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Elegí hasta 2 amigos: la 1.ª burbuja es siempre tuya (2 o 3 burbujas en total).',
+              style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 10),
             if (friends.isEmpty)
@@ -128,13 +210,12 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
                     ChoiceChip(
                       label: Text(friendProfile.displayName,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      selected: service.friendId == friendProfile.id,
-                      onSelected: (_) {
-                        service.selectFriend(
-                          friendProfile.id,
-                          displayName: friendProfile.displayName,
-                        );
-                      },
+                      selected: service.friendIds.contains(friendProfile.id),
+                      onSelected: (_) => _toggleFriend(
+                        service,
+                        friendProfile.id,
+                        friendProfile.displayName,
+                      ),
                       selectedColor: const Color(0xFFD3E4F6),
                       backgroundColor: AppColors.card,
                       avatar: const Icon(Icons.favorite_rounded, size: 15, color: Color(0xFFE26D7A)),
@@ -183,8 +264,8 @@ class _IntroCard extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Compara tu burbuja de hoy con la de un amigo directamente en el escritorio. '
-              'Elige un amigo, instala el widget y se actualizará solo cuando cambies tu estado.',
+              'Compara tu burbuja de hoy con las de hasta 2 amigos en el escritorio, en horizontal o vertical. '
+              'Se actualiza solo cuando cambie tu estado.',
               style: TextStyle(fontSize: 13, height: 1.45, color: AppColors.inkSoft),
             ),
           ),

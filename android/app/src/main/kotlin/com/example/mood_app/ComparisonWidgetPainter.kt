@@ -19,25 +19,32 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
  * Dibuja en NATIVO (sin motor Flutter) la escena del widget de comparación
- * "mía vs. amigo", a partir del cache que la app deja en el widget storage
- * (JSON: etiqueta + colores ARGB de cuerpo y aura). La geometría replica 1:1
- * la de `MoodComparisonScenePainter` (Dart, 360×220) a 2× (720×440), así el
- * look es el mismo que muestra el preview dentro de la app.
+ * (de 1 a 3 burbujas, la 1.ª siempre "Yo", en horizontal o vertical), a
+ * partir del cache que la app deja en el widget storage (JSON: etiqueta +
+ * colores ARGB de cuerpo y aura). La geometría replica 1:1 la de
+ * `MoodComparisonScenePainter` (Dart) a 2×, así el look es el mismo que
+ * muestra el preview dentro de la app.
  *
  * Regla de rollover: si la fecha del cache no es HOY (el widget no pudo
- * refrescarse), ambas burbujas se dibujan VACÍAS conservando las etiquetas,
+ * refrescarse), las burbujas se dibujan VACÍAS conservando las etiquetas,
  * para no mentir con el estado de un día anterior.
  */
 object ComparisonWidgetPainter {
-  const val WIDTH = 720
-  const val HEIGHT = 440
+  // Coordenadas de escena (dp), idénticas a las de Dart.
+  private const val SCENE_W_HORIZONTAL = 360f
+  private const val SCENE_H_HORIZONTAL = 220f
+  private const val SCENE_W_VERTICAL = 220f
+  private const val SCENE_H_VERTICAL = 420f
+  private const val SCALE = 2f
 
   private const val INK = 0xFF2B3A4A.toInt()
 
@@ -47,24 +54,16 @@ object ComparisonWidgetPainter {
   )
   private val RAINBOW_STOPS = floatArrayOf(0f, 0.2f, 0.4f, 0.6f, 0.8f, 1f)
 
-  /** Datos de una de las dos burbujas leídos del cache. */
+  /** Datos de una de las burbujas leídos del cache. */
   class Bubble(val label: String, val colors: IntArray, val aura: IntArray) {
     companion object {
-      fun from(json: String?): Bubble? {
-        if (json.isNullOrBlank()) return null
-        return try {
-          val root = JSONObject(json)
-          Bubble(
-              label = root.optString("l", "—"),
-              colors = intArray(root.optJSONArray("c")),
-              aura = intArray(root.optJSONArray("a")),
-          )
-        } catch (_: Exception) {
-          null
-        }
-      }
+      fun from(json: JSONObject): Bubble = Bubble(
+          label = json.optString("l", "—"),
+          colors = intArray(json.optJSONArray("c")),
+          aura = intArray(json.optJSONArray("a")),
+      )
 
-      private fun intArray(array: org.json.JSONArray?): IntArray {
+      private fun intArray(array: JSONArray?): IntArray {
         if (array == null) return IntArray(0)
         val out = IntArray(array.length())
         for (i in out.indices) out[i] = array.getInt(i)
@@ -77,44 +76,95 @@ object ComparisonWidgetPainter {
    * Genera la escena completa. Los valores provienen del widget storage de
    * home_widget (nombres de clave en `widget_cache_store.dart`).
    */
-  fun draw(dateKey: String?, mineJson: String?, friendJson: String?): Bitmap {
-    val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
+  fun draw(dateKey: String?, bubblesJson: String?, layoutJson: String?): Bitmap {
+    val vertical = layoutJson == "v"
+    val sceneW = if (vertical) SCENE_W_VERTICAL else SCENE_W_HORIZONTAL
+    val sceneH = if (vertical) SCENE_H_VERTICAL else SCENE_H_HORIZONTAL
+    val bitmap = Bitmap.createBitmap(
+        (sceneW * SCALE).roundToInt(),
+        (sceneH * SCALE).roundToInt(),
+        Bitmap.Config.ARGB_8888,
+    )
     val canvas = Canvas(bitmap)
+    canvas.scale(SCALE, SCALE)
 
-    val mine = Bubble.from(mineJson)
-    val friend = Bubble.from(friendJson)
-
+    val bubbles = parseBubbles(bubblesJson)
     val isToday = dateKey == todayKey()
-    val mineColors = if (isToday) mine?.colors ?: IntArray(0) else IntArray(0)
-    val friendColors = if (isToday) friend?.colors ?: IntArray(0) else IntArray(0)
-    val mineAura = mine?.aura ?: IntArray(0)
-    val friendAura = friend?.aura ?: IntArray(0)
-    val mineLabel = mine?.label ?: "Yo"
-    val friendLabel = friend?.label ?: "—"
-
-    val margin = WIDTH * 0.04f
-    val gap = WIDTH * 0.033f
-    val cellWidth = (WIDTH - 2 * margin - gap) / 2f
-
-    val labelFont = HEIGHT * 0.10f
-    val labelTop = HEIGHT - (labelFont * 1.55f + 6f)
-    val bubbleDiameter = WIDTH * 0.44f
-    val bubbleCenterY = HEIGHT * 0.42f
-
-    val leftCenterX = margin + cellWidth / 2f
-    val rightCenterX = margin + cellWidth + gap + cellWidth / 2f
-
-    paintBubble(canvas, leftCenterX, bubbleCenterY, bubbleDiameter, mineColors, mineAura)
-    paintBubble(canvas, rightCenterX, bubbleCenterY, bubbleDiameter, friendColors, friendAura)
-
-    val labelOffset = labelTop + (labelFont * 1.55f - labelFont) / 2f
-    drawLabel(canvas, leftCenterX, labelOffset, cellWidth, mineLabel, labelFont)
-    drawLabel(canvas, rightCenterX, labelOffset, cellWidth, friendLabel, labelFont)
-
+    if (vertical) {
+      drawVertical(canvas, sceneW, sceneH, bubbles, isToday)
+    } else {
+      drawHorizontal(canvas, sceneW, sceneH, bubbles, isToday)
+    }
     return bitmap
   }
 
+  private fun parseBubbles(json: String?): Array<Bubble> {
+    if (json.isNullOrBlank()) return emptyArray()
+    return try {
+      val arr = JSONArray(json)
+      Array(arr.length()) { i -> Bubble.from(arr.getJSONObject(i)) }
+    } catch (_: Exception) {
+      emptyArray()
+    }
+  }
+
   private fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+  private fun drawHorizontal(
+    canvas: Canvas,
+    w: Float,
+    h: Float,
+    bubbles: Array<Bubble>,
+    isToday: Boolean,
+  ) {
+    val n = bubbles.size
+    if (n == 0) return
+    val margin = w * 0.04f
+    val gap = w * 0.033f
+    val cellWidth = (w - 2 * margin - gap * (n - 1)) / n
+    val labelFont = h * 0.10f
+    val labelTop = h - (labelFont * 1.55f + 6f)
+    val bubbleDiameter = min(w * 0.44f, cellWidth * 0.9f)
+    val bubbleCenterY = h * 0.42f
+    val labelOffset = labelTop + (labelFont * 1.55f - labelFont) / 2f
+
+    for (i in 0 until n) {
+      val cellLeft = margin + i * (cellWidth + gap)
+      val centerX = cellLeft + cellWidth / 2f
+      val bubble = bubbles[i]
+      val colors = if (isToday) bubble.colors else IntArray(0)
+      paintBubble(canvas, centerX, bubbleCenterY, bubbleDiameter, colors, bubble.aura)
+      drawLabel(canvas, centerX, labelOffset, cellWidth, bubble.label, labelFont)
+    }
+  }
+
+  private fun drawVertical(
+    canvas: Canvas,
+    w: Float,
+    h: Float,
+    bubbles: Array<Bubble>,
+    isToday: Boolean,
+  ) {
+    val n = bubbles.size
+    if (n == 0) return
+    val margin = w * 0.04f
+    val bubbleDiameter = w * 0.40f
+    val labelFont = bubbleDiameter * 0.20f
+    val labelBand = labelFont * 1.6f
+    val rowStep = bubbleDiameter + labelBand
+    val total = n * rowStep
+    val startY = max(margin, (h - total) / 2f)
+    val centerX = w / 2f
+
+    for (i in 0 until n) {
+      val y = startY + rowStep * i
+      val bubble = bubbles[i]
+      val colors = if (isToday) bubble.colors else IntArray(0)
+      paintBubble(canvas, centerX, y + bubbleDiameter / 2f, bubbleDiameter, colors, bubble.aura)
+      val labelTop = y + bubbleDiameter + (labelBand - labelFont) / 2f
+      drawLabel(canvas, centerX, labelTop, w - 2 * margin, bubble.label, labelFont)
+    }
+  }
 
   // ──────────────────────────────────────────── burbuja ────────────────────────────────────────────
 

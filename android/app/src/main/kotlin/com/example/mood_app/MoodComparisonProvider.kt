@@ -37,10 +37,10 @@ class MoodComparisonProvider : HomeWidgetProvider() {
     }
 
     val dateKey = widgetData.getString("widget_date_key", null)
-    val mineJson = widgetData.getString("widget_mine_json", null)
-    val friendJson = widgetData.getString("widget_friend_json", null)
-    if (mineJson != null && friendJson != null) {
-      val bitmap = ComparisonWidgetPainter.draw(dateKey, mineJson, friendJson)
+    val bubblesJson = widgetData.getString("widget_bubbles_json", null)
+    val layout = widgetData.getString("widget_layout", null)
+    if (bubblesJson != null && bubblesJson.isNotBlank()) {
+      val bitmap = ComparisonWidgetPainter.draw(dateKey, bubblesJson, layout)
       remoteViews.setImageViewBitmap(R.id.comparison_image, bitmap)
     } else {
       remoteViews.setImageViewResource(R.id.comparison_image, R.drawable.widget_placeholder)
