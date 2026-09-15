@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.4.14",
-    "versionCode":  27,
+    "versionName":  "0.4.15",
+    "versionCode":  28,
     "releaseDate":  "2026-09-15",
     "notes":  [
-                  "Colores del fondo de perfil mas palidos y limpios; degradado mas suave"
+                  "Corregido un cuelgue al abrir el perfil de un amigo desde el calendario o el detalle de un dia"
               ],
     "sizeBytes":  57903002,
-    "sha256":  "15b7bc91e03a3977589a327c282f5d31bd6d030111f74f48c042bb2cee08a5cf",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.14/app-release.apk"
+    "sha256":  "07a3db12e3d3460518bd7eddcc2cb8a8deaeba3431c824e69776296bd7a521c2",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.15/app-release.apk"
 }
