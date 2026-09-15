@@ -1,12 +1,11 @@
 ﻿{
-    "versionName":  "0.4.13",
-    "versionCode":  26,
+    "versionName":  "0.4.14",
+    "versionCode":  27,
     "releaseDate":  "2026-09-15",
     "notes":  [
-                  "Navegacion entre el inicio y los perfiles de tus amigos deslizando con el dedo: mas fluida y natural",
-                  "Ajustes visuales de fondo y de notificaciones"
+                  "Colores del fondo de perfil mas palidos y limpios; degradado mas suave"
               ],
     "sizeBytes":  57903002,
-    "sha256":  "664b28ff5beb9b305d3aa4c54847552675f887d27e9b91df9a35a0a820910918",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.13/app-release.apk"
+    "sha256":  "15b7bc91e03a3977589a327c282f5d31bd6d030111f74f48c042bb2cee08a5cf",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.14/app-release.apk"
 }
