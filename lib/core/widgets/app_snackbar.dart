@@ -79,7 +79,12 @@ void showAppSnackBar(
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: AppColors.cardLine),
         ),
-        content: content,
+        // Fondo claro propio: el texto no debe heredar el color por defecto
+        // de M3 (diseñado para fondo oscuro), sino el tinta de la app.
+        content: DefaultTextStyle.merge(
+          style: const TextStyle(color: AppColors.ink),
+          child: content,
+        ),
         duration: duration,
         action: action,
       ),

@@ -13,10 +13,14 @@ class AppColors {
 
   /// Gradiente de fondo de Home y perfiles. Con [top] nulo o igual al
   /// [bgTop] por defecto usa el gradiente estándar de la app; con un color
-  /// personalizado deriva una versión más oscura abajo para conservar la
-  /// identidad de doble tono.
+  /// personalizado deriva una versión del MISMO color levemente más profunda
+  /// (mismo matiz y saturación, solo algo menos claro), para que el degradado
+  /// se vea suave y sin manchas oscuras ni suciedad.
   static List<Color> bgGradient(Color? top) {
     if (top == null || top == bgTop) return [bgTop, bgBottom];
-    return [top, Color.lerp(top, const Color(0xFF18344D), 0.20)!];
+    final hsl = HSLColor.fromColor(top);
+    final bottom =
+        hsl.withLightness((hsl.lightness - 0.06).clamp(0.0, 1.0)).toColor();
+    return [top, bottom];
   }
 }

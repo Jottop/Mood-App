@@ -8,11 +8,13 @@ import 'package:workmanager/workmanager.dart';
 import 'core/config/env.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/friends_pager_scope.dart';
 import 'data/repositories/local_mood_color_palette_repository.dart';
 import 'data/repositories/supabase_mood_catalog_repository.dart';
 import 'data/repositories/supabase_mood_repository.dart';
 import 'features/auth/login_screen.dart';
 import 'features/friends/friends_hub.dart';
+import 'features/friends/profiles_pager_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/widget_comparison/widget_background_sync.dart';
 import 'features/widget_comparison/widget_comparison_service.dart';
@@ -133,21 +135,32 @@ class _AppFrame extends StatefulWidget {
 
 class _AppFrameState extends State<_AppFrame> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  late final FriendsPagerController _pagerController =
+      FriendsPagerController(navigatorKey: _navigatorKey);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: _navigatorKey,
-      title: 'Tu día',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      home: widget.home,
-      builder: widget.showFriendsHub
-          ? (context, child) => FriendsHubOverlay(
-                navigator: _navigatorKey,
-                child: child ?? const SizedBox.shrink(),
-              )
-          : null,
+    return FriendsPagerScope(
+      controller: _pagerController,
+      child: MaterialApp(
+        navigatorKey: _navigatorKey,
+        title: 'Tu día',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        // Con el hub de amigos activo el Home real vive como primera página
+        // del pager raíz (`ProfilesPagerScreen`): deslizar hacia la derecha
+        // recorre los perfiles de los amigos y hacia la izquierda se vuelve
+        // al Home.
+        home: widget.showFriendsHub
+            ? ProfilesPagerScreen(key: _pagerController.pagerKey)
+            : widget.home,
+        builder: widget.showFriendsHub
+            ? (context, child) => FriendsHubOverlay(
+                  navigator: _navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                )
+            : null,
+      ),
     );
   }
 }

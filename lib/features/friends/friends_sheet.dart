@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_snackbar.dart';
+import '../../core/widgets/friends_pager_scope.dart';
 import '../../data/models/profile.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
-import 'friend_profile_screen.dart';
 
 /// Abre la hoja inferior del hub de amigos. Con [onlyList] `true` muestra
 /// solo la lista (para el chip "+N"); en `false` además el código propio y
@@ -180,10 +180,11 @@ class _FriendsSheetState extends State<FriendsSheet> {
                     _FriendTile(
                       friend: friend,
                       onTap: () {
-                        context.read<FriendsProvider>().selectProfile(friend.id);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: friend)),
-                        );
+                        // Cierra la hoja y salta al perfil en el pager raíz
+                        // (el pager remarca la selección al asentarse).
+                        final pager = FriendsPagerScope.maybeOf(context);
+                        Navigator.of(context).pop();
+                        pager?.jumpToProfile(friend.id);
                       },
                       onRemove: () => _confirmRemove(friend),
                     ),

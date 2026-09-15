@@ -14,7 +14,6 @@ import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import '../history/calendar_screen.dart';
-import '../friends/friend_profile_screen.dart';
 import '../moods/manage_moods_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import '../profile/settings_screen.dart';
@@ -84,21 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  /// Deslizar a la izquierda desde el Home abre el perfil del primer amigo
-  /// (ciclo de amigos). Sin amigos no hace nada.
-  void _swipeToFirstFriend() {
-    final friendsProvider = context.read<FriendsProvider>();
-    if (friendsProvider.friends.isEmpty) return;
-    final first = friendsProvider.friends.first;
-    // La selección se ajusta DESDE el gesto (antes de navegar), no desde el
-    // ciclo de vida del route: notificar dentro de initState/dispose de la
-    // pantalla congela la app porque la píldora está por encima del Navigator.
-    friendsProvider.selectProfile(first.id);
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: first)),
-    );
-  }
-
+  /// El Home real es la primera página del pager raíz (`ProfilesPagerScreen`):
+  /// deslizar hacia la derecha recorre los perfiles de los amigos y hacia la
+  /// izquierda se vuelve al Home. Acá ya no hace falta ningún gesto propio.
   @override
   Widget build(BuildContext context) {
     // Mi perfil para el color de fondo del Home (y del avatar de la esquina
@@ -153,22 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? 'Aún no registras cómo te sientes hoy'
                   : 'Ahora te sientes ${catalog.byId(todaysAsc.last.moodId).label.toLowerCase()}';
 
-              // GestureDetector horizontal: deslizar a la izquierda abre el
-              // primer amigo (ciclo hacia sus perfiles). El pull-to-refresh es
-              // vertical y sigue intacto, igual que los taps.
-              return GestureDetector(
-                onHorizontalDragEnd: (details) {
-                  if ((details.primaryVelocity ?? 0) < -350) {
-                    _swipeToFirstFriend();
-                  }
-                },
-                child: RefreshIndicator(
-                  onRefresh: _refresh,
-                  color: AppColors.ink,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
-                    children: [
+              // El pager raíz maneja el horizontal; acá solo el vertical
+              // (pull-to-refresh) y los taps.
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                color: AppColors.ink,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
+                  children: [
                       const _Header(),
                       const SizedBox(height: 20),
                       // La burbuja con mi avatar en la esquina superior
@@ -311,8 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                ),
-              );
+                );
             },
           ),
         ),

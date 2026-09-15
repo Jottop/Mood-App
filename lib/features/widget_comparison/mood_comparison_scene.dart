@@ -224,6 +224,12 @@ class MoodComparisonScene extends StatefulWidget {
   final String friendLabel;
   final WidgetLayout layout;
 
+  /// Tope de altura del recuadro de la preview. La escena mantiene su
+  /// proporción real y se centra en el ancho disponible; el PNG rasterizado
+  /// es idéntico (no cambia la resolución ni el dibujo). `null` deja que la
+  /// preview ocupe todo el ancho (comportamiento previo).
+  final double? maxHeight;
+
   const MoodComparisonScene({
     super.key,
     required this.mine,
@@ -231,6 +237,7 @@ class MoodComparisonScene extends StatefulWidget {
     required this.mineLabel,
     required this.friendLabel,
     required this.layout,
+    this.maxHeight,
   });
 
   @override
@@ -299,7 +306,7 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
   Widget build(BuildContext context) {
     final png = _png;
     final sceneSize = comparisonSceneSize(widget.layout);
-    return AspectRatio(
+    final preview = AspectRatio(
       aspectRatio: sceneSize.width / sceneSize.height,
       child: Container(
         decoration: BoxDecoration(
@@ -316,6 +323,14 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
             ? const SizedBox.expand()
             : Image.memory(png, fit: BoxFit.fill, gaplessPlayback: true),
       ),
+    );
+    final maxHeight = widget.maxHeight;
+    if (maxHeight == null) return preview;
+    // Preview compacta: se limita el alto (el ancho se deriva de la
+    // proporción real) y se centra para no estirarse por toda la tarjeta.
+    final width = maxHeight * (sceneSize.width / sceneSize.height);
+    return Center(
+      child: SizedBox(width: width, height: maxHeight, child: preview),
     );
   }
 }

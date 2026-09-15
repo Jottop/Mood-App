@@ -8,7 +8,6 @@ import '../../core/widgets/day_bubble_data.dart';
 import '../../data/friend_data_loader.dart';
 import '../../data/models/profile.dart';
 import '../../data/mood_view_data.dart';
-import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../home/widgets/day_entry_list.dart';
 import '../home/widgets/mood_bubble.dart';
@@ -16,19 +15,23 @@ import '../history/calendar_screen.dart';
 import '../history/mood_summary.dart';
 import 'friend_moods_copy_sheet.dart';
 
-/// Perfil de un amigo (solo lectura): el resumen de HOY del amigo — burbuja
-/// grande con los colores de sus registros, desglose de porcentajes — y
-/// acceso a su calendario read-only para repasar cualquier día.
-class FriendProfileScreen extends StatefulWidget {
+/// Una página del pager raíz: el resumen de HOY de un amigo (solo lectura) —
+/// burbuja grande con los colores de sus registros, desglose de porcentajes —
+/// con acceso a su calendario read-only y a sus emociones para copiar.
+///
+/// Cada página lleva su propio Scaffold + AppBar con el nombre del amigo y
+/// pinta el gradiente de fondo de su perfil (lo eligió el amigo; así cada
+/// quien ve el del otro).
+class FriendProfilePage extends StatefulWidget {
   final Profile friend;
 
-  const FriendProfileScreen({super.key, required this.friend});
+  const FriendProfilePage({super.key, required this.friend});
 
   @override
-  State<FriendProfileScreen> createState() => _FriendProfileScreenState();
+  State<FriendProfilePage> createState() => _FriendProfilePageState();
 }
 
-class _FriendProfileScreenState extends State<FriendProfileScreen> {
+class _FriendProfilePageState extends State<FriendProfilePage> {
   bool _loading = true;
   String? _error;
   FriendMoodViewData? _view;
@@ -39,6 +42,19 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant FriendProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Si la ventana del pager rebasa y una página cambia de dueño (otro
+    // amigo), se recarga ese perfil. Igual que si fuera una página nueva.
+    if (oldWidget.friend.id != widget.friend.id) {
+      _view = null;
+      _error = null;
+      _loading = true;
+      _load(silent: true);
+    }
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -107,84 +123,28 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // El color de fondo es el del perfil que se está viendo (lo eligió el
-    // amigo; así cada quien ve el del otro).
     final bgColors = AppColors.bgGradient(widget.friend.homeBg);
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (bool didPop, Object? result) {
-        // Al salir del perfil (back, flecha del AppBar o "volver al inicio")
-        // la píldora vuelve a remarcar mi icono (selección = null => Home).
-        if (didPop) {
-          context.read<FriendsProvider>().selectProfile(null);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: bgColors.last,
-        appBar: AppBar(
-          backgroundColor: bgColors.first,
-          elevation: 0,
-          title: Text(_displayName,
-              style: const TextStyle(
-                  color: AppColors.ink, fontWeight: FontWeight.w700)),
-          iconTheme: const IconThemeData(color: AppColors.ink),
-        ),
-        // GestureDetector horizontal: ciclo entre perfiles de amigos
-        // (izquierda = siguiente, derecha = anterior; el primero a la
-        // derecha vuelve al Home). El pull-to-refresh es vertical y los taps
-        // siguen intactos.
-        body: GestureDetector(
-          onHorizontalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (velocity < -350) {
-              _swipeToFriend(next: true);
-            } else if (velocity > 350) {
-              _swipeToFriend(next: false);
-            }
-          },
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: bgColors,
-              ),
-            ),
-            child: SafeArea(child: _buildBody()),
+    return Scaffold(
+      backgroundColor: bgColors.last,
+      appBar: AppBar(
+        backgroundColor: bgColors.first,
+        elevation: 0,
+        title: Text(_displayName,
+            style: const TextStyle(
+                color: AppColors.ink, fontWeight: FontWeight.w700)),
+        iconTheme: const IconThemeData(color: AppColors.ink),
+      ),
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: bgColors,
           ),
         ),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
-    );
-  }
-
-  /// Navega al amigo siguiente/anterior (ciclo). La selección se ajusta
-  /// DESDE el gesto, antes de navegar (ver FriendsHubPill).
-  void _swipeToFriend({required bool next}) {
-    final friendsProvider = context.read<FriendsProvider>();
-    final friends = friendsProvider.friends;
-    if (friends.isEmpty) return;
-    final index = friends.indexWhere((f) => f.id == widget.friend.id);
-    if (next) {
-      final nextFriend = friends[(index + 1) % friends.length];
-      friendsProvider.selectProfile(nextFriend.id);
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-            builder: (_) => FriendProfileScreen(friend: nextFriend)),
-      );
-      return;
-    }
-    if (index <= 0) {
-      // Primero hacia la derecha: vuelvo a mi Home.
-      friendsProvider.selectProfile(null);
-      Navigator.of(context).pop();
-      return;
-    }
-    final prevFriend = friends[index - 1];
-    friendsProvider.selectProfile(prevFriend.id);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-          builder: (_) => FriendProfileScreen(friend: prevFriend)),
     );
   }
 
@@ -241,7 +201,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
       color: AppColors.ink,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 80),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 96),
         children: [
           const Center(
             child: Text(

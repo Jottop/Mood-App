@@ -6,12 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/avatar.dart';
+import '../../core/widgets/friends_pager_scope.dart';
 import '../../core/widgets/friends_pill_scope.dart';
 import '../../data/models/profile.dart';
 import '../../data/pill_capsule_prefs.dart';
 import '../../state/auth_provider.dart';
 import '../../state/friends_provider.dart';
-import 'friend_profile_screen.dart';
 import 'friends_sheet.dart';
 
 enum _PillEdge { center, left, right }
@@ -383,12 +383,8 @@ class FriendsHubPill extends StatelessWidget {
         initial: myProfile?.displayInitial ?? '?',
         selected: isMeSelected,
         onTap: () {
-          // La selección se ajusta DESDE el gesto (antes de navegar), no
-          // desde el ciclo de vida del route: notificar dentro de
-          // initState/dispose de la pantalla congela la app porque la
-          // píldora está por encima del Navigator y se reconstruye en el
-          // mismo pase de build.
-          friendsProvider.selectProfile(null);
+          // El pager raíz remarca mi avatar (selección null) al volver al
+          // Home; acá solo se navega.
           _goHome();
         },
         tooltip: 'Ir al inicio',
@@ -409,7 +405,7 @@ class FriendsHubPill extends StatelessWidget {
           initial: friend.displayInitial,
           selected: selectedProfileId == friend.id,
           onTap: () {
-            friendsProvider.selectProfile(friend.id);
+            // El pager raíz remarca el amigo al asentarse el salto.
             _openFriend(friend);
           },
           tooltip: friend.displayName,
@@ -448,16 +444,19 @@ class FriendsHubPill extends StatelessWidget {
     );
   }
 
-  /// Mi avatar: vuelve al inicio (el menú principal del día, el Home),
-  /// estés donde estés dentro del Navigator.
+  /// Mi avatar: vuelve al inicio (el Home real, primera página del pager),
+  /// estés donde estés dentro del Navigator. El pager remarca mi avatar al
+  /// llegar.
   void _goHome() {
-    navigator.currentState?.popUntil((route) => route.isFirst);
+    final navContext = navigator.currentState?.context;
+    if (navContext == null) return;
+    FriendsPagerScope.of(navContext).goHome();
   }
 
   void _openFriend(Profile friend) {
-    navigator.currentState?.push(
-      MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: friend)),
-    );
+    final navContext = navigator.currentState?.context;
+    if (navContext == null) return;
+    FriendsPagerScope.of(navContext).jumpToProfile(friend.id);
   }
 }
 

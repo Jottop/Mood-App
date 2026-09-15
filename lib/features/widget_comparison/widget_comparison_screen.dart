@@ -256,6 +256,10 @@ class _WidgetCard extends StatelessWidget {
             mineLabel: mineLabel,
             friendLabel: friendLabel,
             layout: layout,
+            // La preview vertical se muestra compacta (tope de alto) para no
+            // robarle todo el espacio a la tarjeta; el horizontal ocupa el
+            // ancho completo.
+            maxHeight: layout == WidgetLayout.vertical ? 240 : null,
           ),
           const SizedBox(height: 12),
           ConstrainedBox(

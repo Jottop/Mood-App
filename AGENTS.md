@@ -15,7 +15,7 @@ friends added instantly by friend code, RLS grants friends read-only access
 to `mood_catalog`/`mood_entries`, keys via `--dart-define`.
 Local-first data now flows through the `MoodViewData` abstraction
 (`lib/data/mood_view_data.dart`): screens like `DayDetailScreen`,
-`CalendarScreen`, `DayEntryList`, `MoodSummary` and `FriendProfileScreen`
+`CalendarScreen`, `DayEntryList`, `MoodSummary` and `FriendProfilePage`
 take a `view` (+ `readOnly` in editing screens) and never touch
 providers/Supabase directly; `LocalMoodViewData` wraps the local providers
 ("yo" mode), `FriendMoodViewData` is the read-only fetched friend data.
