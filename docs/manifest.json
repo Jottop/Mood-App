@@ -1,11 +1,12 @@
 ﻿{
-    "versionName":  "0.4.12",
-    "versionCode":  25,
-    "releaseDate":  "2026-09-14",
+    "versionName":  "0.4.13",
+    "versionCode":  26,
+    "releaseDate":  "2026-09-15",
     "notes":  [
-                  "Ajustes del widget de comparación: el vertical ocupa menos alto y las burbujas quedan más separadas."
+                  "Navegacion entre el inicio y los perfiles de tus amigos deslizando con el dedo: mas fluida y natural",
+                  "Ajustes visuales de fondo y de notificaciones"
               ],
-    "sizeBytes":  57837466,
-    "sha256":  "af20b9d9ab6787865f648a3d24f096956ca8c9213059c0e10009184ed32053d8",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.12/app-release.apk"
+    "sizeBytes":  57903002,
+    "sha256":  "664b28ff5beb9b305d3aa4c54847552675f887d27e9b91df9a35a0a820910918",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.13/app-release.apk"
 }
