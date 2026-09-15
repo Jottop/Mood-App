@@ -198,6 +198,7 @@ class ProfilesPagerScreenState extends State<ProfilesPagerScreen> {
   /// llegar al destino. Viajar varios perfiles se siente como deslizarse.
   Future<void> _navigateToIndex(int target) async {
     while (mounted && _clampedIndex != target) {
+      final before = _clampedIndex;
       final direction = target > _clampedIndex ? 1 : -1;
       final nextPage = _centerPage + direction;
       if (nextPage >= _pageCount) return;
@@ -210,6 +211,9 @@ class ProfilesPagerScreenState extends State<ProfilesPagerScreen> {
       // notificación); si el futuro ganó la carrera, se fuerza acá. El rebase
       // es idempotente (frena con _pendingDirection == 0).
       _applyPendingRebase();
+      // Sin avance (p.ej. pager oculto bajo rutas con viewport en 0): se corta
+      // el salto para no quedarse girando en el loop.
+      if (_clampedIndex == before) return;
     }
   }
 

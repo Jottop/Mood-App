@@ -20,15 +20,25 @@ class FriendsPagerController {
 
   /// Vuelve a la página 0 (el Home real) y limpia cualquier ruta empujada
   /// (historial, estados, ajustes...) estés donde estés dentro del Navigator.
+  /// Las rutas se limpian PRIMERO y el pager se mueve en el frame siguiente:
+  /// cubierto por rutas empujadas su viewport queda en 0 y `animateToPage`
+  /// no podría moverse (ni congelarse queriendo avanzar).
   void goHome() {
-    pagerKey.currentState?.goHome();
     navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      pagerKey.currentState?.goHome();
+    });
   }
 
-  /// Salta al perfil de un amigo (por id) dentro del pager. El pager se
-  /// encarga de remarcar la selección en la píldora al asentarse.
+  /// Salta al perfil de un amigo (por id) dentro del pager. Igual que
+  /// `goHome`: primero despeja las rutas empujadas y recién en el frame
+  /// siguiente anima el pager (ya visible y medido). El pager se encarga de
+  /// remarcar la selección en la píldora al asentarse.
   void jumpToProfile(String friendId) {
-    pagerKey.currentState?.jumpToProfile(friendId);
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      pagerKey.currentState?.jumpToProfile(friendId);
+    });
   }
 }
 
