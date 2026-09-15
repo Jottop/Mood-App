@@ -12,9 +12,10 @@ import '../../state/mood_provider.dart';
 import 'mood_comparison_scene.dart';
 import 'widget_comparison_service.dart';
 
-/// Configuración del widget de comparación del escritorio: elegir el amigo
-/// cuya burbuja se compara con la mía, ver una preview en vivo de la escena
-/// y pedirle al sistema instalar el AppWidget (pin nativo, Android 8+).
+/// Configuración de los widgets de comparación del escritorio: elegir el
+/// amigo cuya burbuja se compara con la mía, ver una preview de cada widget
+/// (horizontal y vertical) y pedirle al sistema instalar cada AppWidget
+/// (pin nativo, Android 8+).
 class WidgetComparisonScreen extends StatefulWidget {
   const WidgetComparisonScreen({super.key});
 
@@ -33,9 +34,9 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     });
   }
 
-  Future<void> _pinWidget(BuildContext context) async {
+  Future<void> _pinWidget(BuildContext context, String providerName) async {
     await HomeWidget.requestPinWidget(
-      qualifiedAndroidName: 'com.example.mood_app.MoodComparisonProvider',
+      qualifiedAndroidName: providerName,
     );
     if (!context.mounted) return;
     showAppSnackBar(
@@ -85,15 +86,38 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
             const _IntroCard(),
             const SizedBox(height: 20),
             const Text(
-              'Así se verá',
+              'Elige tus widgets',
               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 10),
-            MoodComparisonScene(
+            _WidgetCard(
+              title: 'Widget horizontal',
+              description: 'Burbujas lado a lado en un marco ancho (2×1).',
+              layout: WidgetLayout.horizontal,
               mine: mine,
               friend: friend,
               mineLabel: 'Yo',
               friendLabel: service.friendName ?? '—',
+              installLabel: 'Instalar widget horizontal',
+              rendering: service.rendering,
+              onInstall: () => _pinWidget(
+                  context, 'com.example.mood_app.MoodComparisonProvider'),
+            ),
+            const SizedBox(height: 16),
+            _WidgetCard(
+              title: 'Widget vertical',
+              description: 'Burbujas apiladas en un marco alto (2×2). '
+                  'Estíralo en el escritorio hasta que su alto sea el ancho '
+                  'del horizontal y las burbujas se ajustan solas.',
+              layout: WidgetLayout.vertical,
+              mine: mine,
+              friend: friend,
+              mineLabel: 'Yo',
+              friendLabel: service.friendName ?? '—',
+              installLabel: 'Instalar widget vertical',
+              rendering: service.rendering,
+              onInstall: () => _pinWidget(
+                  context, 'com.example.mood_app.MoodVerticalProvider'),
             ),
             const SizedBox(height: 12),
             if (service.lastError != null)
@@ -111,6 +135,15 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
               ),
+            if (_pinSupported == false) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Tu dispositivo no admite instalarlo desde la app: mantené presionado el escritorio y '
+                'agregá los widgets "Tu día" desde la lista de widgets.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.inkSoft),
+              ),
+            ],
             const SizedBox(height: 20),
             const Text(
               '¿Quién comparas contigo?',
@@ -145,11 +178,17 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
                 ],
               ),
             const SizedBox(height: 22),
-            _InstallActions(
-              rendering: service.rendering,
-              pinSupported: _pinSupported,
-              onPin: () => _pinWidget(context),
-              onRefresh: () => service.refresh(),
+            OutlinedButton.icon(
+              onPressed: service.rendering ? null : service.refresh,
+              icon: const Icon(Icons.refresh_rounded, size: 17, color: AppColors.ink),
+              label: const Text('Actualizar burbujas',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.card,
+                side: const BorderSide(color: AppColors.cardLine),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+              ),
             ),
           ],
         ),
@@ -161,6 +200,88 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     final hour = t.hour.toString().padLeft(2, '0');
     final minute = t.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+}
+
+class _WidgetCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final WidgetLayout layout;
+  final DayBubbleData mine;
+  final DayBubbleData friend;
+  final String mineLabel;
+  final String friendLabel;
+  final String installLabel;
+  final bool rendering;
+  final VoidCallback onInstall;
+
+  const _WidgetCard({
+    required this.title,
+    required this.description,
+    required this.layout,
+    required this.mine,
+    required this.friend,
+    required this.mineLabel,
+    required this.friendLabel,
+    required this.installLabel,
+    required this.rendering,
+    required this.onInstall,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.ink),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.inkSoft),
+          ),
+          const SizedBox(height: 10),
+          MoodComparisonScene(
+            mine: mine,
+            friend: friend,
+            mineLabel: mineLabel,
+            friendLabel: friendLabel,
+            layout: layout,
+          ),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: FilledButton.icon(
+              onPressed: rendering ? null : onInstall,
+              icon: rendering
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                    )
+                  : const Icon(Icons.download_for_offline_rounded, size: 19),
+              label: Text(rendering ? 'Preparando…' : installLabel),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2B6FB3),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -183,8 +304,9 @@ class _IntroCard extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Compara tu burbuja de hoy con la de un amigo directamente en el escritorio. '
-              'Elige un amigo, instala el widget y se actualizará solo cuando cambies tu estado.',
+              'Compara tu burbuja de hoy con la de un amigo directamente en el escritorio '
+              'con dos widgets: uno horizontal y uno vertical. Elige un amigo, instala el '
+              'que prefieras (o ambos) y se actualizará solo cuando cambies tu estado.',
               style: TextStyle(fontSize: 13, height: 1.45, color: AppColors.inkSoft),
             ),
           ),
@@ -219,71 +341,6 @@ class _NoFriendsHint extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _InstallActions extends StatelessWidget {
-  final bool rendering;
-  final bool? pinSupported;
-  final VoidCallback onPin;
-  final VoidCallback onRefresh;
-
-  const _InstallActions({
-    required this.rendering,
-    required this.pinSupported,
-    required this.onPin,
-    required this.onRefresh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: FilledButton.icon(
-            onPressed: rendering ? null : onPin,
-            icon: rendering
-                ? const SizedBox(
-                    width: 17,
-                    height: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                  )
-                : const Icon(Icons.download_for_offline_rounded, size: 19),
-            label: Text(rendering ? 'Preparando…' : 'Instalar widget'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2B6FB3),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-              textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            ),
-          ),
-        ),
-        if (pinSupported == false) ...[
-          const SizedBox(height: 8),
-          const Text(
-            'Tu dispositivo no admite instalarlo desde la app: mantené presionado el escritorio y '
-            'agregá el widget "Tu día" desde la lista de widgets.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.inkSoft),
-          ),
-        ],
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: rendering ? null : onRefresh,
-          icon: const Icon(Icons.refresh_rounded, size: 17, color: AppColors.ink),
-          label: const Text('Actualizar burbujas',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.ink)),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: AppColors.card,
-            side: const BorderSide(color: AppColors.cardLine),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-          ),
-        ),
-      ],
     );
   }
 }

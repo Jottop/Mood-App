@@ -1,12 +1,11 @@
 ﻿{
-    "versionName":  "0.4.11",
-    "versionCode":  24,
+    "versionName":  "0.4.12",
+    "versionCode":  25,
     "releaseDate":  "2026-09-14",
     "notes":  [
-                  "El widget del escritorio vuelve a la comparacion clasica que funcionaba: tu burbuja de hoy y la de un amigo elegido, lado a lado, con sus colores y etiquetas.",
-                  "Se revierten los cambios experimentales del widget (multi-burbuja, horizontal/vertical y diagnosticos): queda 100% como la version 0.4.6."
+                  "Ajustes del widget de comparación: el vertical ocupa menos alto y las burbujas quedan más separadas."
               ],
-    "sizeBytes":  57835826,
-    "sha256":  "8a6034d0a331141c1a4cefcde9d7fce214f9fa038fd74db4e4359b9eb5637830",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.11/app-release.apk"
+    "sizeBytes":  57837466,
+    "sha256":  "af20b9d9ab6787865f648a3d24f096956ca8c9213059c0e10009184ed32053d8",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.12/app-release.apk"
 }

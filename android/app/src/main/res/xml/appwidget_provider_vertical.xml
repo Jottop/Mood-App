@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Provider del widget de comparación VERTICAL: el espejo del horizontal.
+     Las celdas de la grilla del launcher NO son cuadradas (más altas que
+     anchas), así que la transposición exacta en celdas enteras no existe;
+     por eso el marco por defecto es 2×2 (no 1×2): bastante menos alto, y el
+     contenido (MoodVerticalProvider) se auto-ajusta a cualquier marco real
+     desde el MISMO cache compartido. Si el launcher lo permite, también se
+     sugiere el tamaño transpuesto exacto del widget horizontal. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="120dp"
+    android:minHeight="120dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:minResizeWidth="100dp"
+    android:minResizeHeight="100dp"
+    android:maxResizeWidth="280dp"
+    android:maxResizeHeight="400dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:initialLayout="@layout/widget_comparison"
+    android:previewLayout="@layout/widget_comparison_preview"
+    android:previewImage="@drawable/widget_comparison_preview"
+    android:description="@string/widget_comparison_vertical_description" />

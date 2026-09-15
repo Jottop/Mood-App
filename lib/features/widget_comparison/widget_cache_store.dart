@@ -31,8 +31,9 @@ const kWidgetDateKey = 'widget_date_key';
 const kWidgetMineJson = 'widget_mine_json';
 const kWidgetFriendJson = 'widget_friend_json';
 
-// Proveedor AppWidget que debe repintarse.
+// Proveedores AppWidget que deben repintarse (horizontal y vertical).
 const kWidgetProviderName = 'com.example.mood_app.MoodComparisonProvider';
+const kWidgetVerticalProviderName = 'com.example.mood_app.MoodVerticalProvider';
 
 // Clave local de un día en formato compacto 'yyyy-MM-dd'.
 String widgetDateKey(DateTime date) => '${date.year.toString().padLeft(4, '0')}-'
@@ -65,7 +66,13 @@ Future<void> saveWidgetFriend({
 }) =>
     HomeWidget.saveWidgetData(kWidgetFriendJson, _bubbleJson(label, friend));
 
-/// Pide a Android que repinte el AppWidget con el cache recién escrito.
-Future<void> refreshWidgetPreview() => HomeWidget.updateWidget(
-      qualifiedAndroidName: kWidgetProviderName,
-    );
+/// Pide a Android que repinte los AppWidget (horizontal y vertical) con el
+/// cache recién escrito.
+Future<void> refreshWidgetPreview() async {
+  await HomeWidget.updateWidget(
+    qualifiedAndroidName: kWidgetProviderName,
+  );
+  await HomeWidget.updateWidget(
+    qualifiedAndroidName: kWidgetVerticalProviderName,
+  );
+}

@@ -8,15 +8,15 @@ import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetProvider
 
 /**
- * AppWidget "Tu día · Comparar burbujas" (HORIZONTAL).
+ * AppWidget "Tu día · Comparar burbujas (vertical)".
  *
- * No ejecuta Flutter: dibuja la escena en NATIVO con [WidgetComparisonRenderer]
- * a partir del cache que la app deja en el widget storage (colores + etiquetas
- * de hoy), ajustando la escena al tamaño real que el launcher le dio al widget
- * y repintándola al redimensionar. Mientras no haya cache (recién instalado o
- * sin configurar) se muestra el placeholder.
+ * Igual que [MoodComparisonProvider] pero dibuja la escena en RETRATO
+ * (burbujas apiladas): el marco del escritorio es más largo que ancho
+ * (appwidget_provider_vertical.xml, 1×2) y lee el MISMO cache compartido del
+ * widget storage (colores + etiquetas de hoy), con layout fijo vertical. La
+ * escena se ajusta al tamaño real del widget y se repinta al redimensionar.
  */
-class MoodComparisonProvider : HomeWidgetProvider() {
+class MoodVerticalProvider : HomeWidgetProvider() {
 
   override fun onUpdate(
       context: Context,
@@ -24,11 +24,14 @@ class MoodComparisonProvider : HomeWidgetProvider() {
       appWidgetIds: IntArray,
       widgetData: SharedPreferences,
   ) {
-    WidgetComparisonRenderer.render(context, appWidgetManager, appWidgetIds, widgetData, "h")
+    for (widgetId in appWidgetIds) {
+      WidgetComparisonRenderer.suggestTransposedSize(context, appWidgetManager, widgetId)
+    }
+    WidgetComparisonRenderer.render(context, appWidgetManager, appWidgetIds, widgetData, "v")
   }
 
   /** Al estirar/redimensionar el widget en el escritorio, repinta la escena a
-   *  las nuevas dimensiones (el sistema no re-renderiza el bitmap solo). */
+   *  las nuevas dimensiones. */
   override fun onAppWidgetOptionsChanged(
       context: Context,
       appWidgetManager: AppWidgetManager,
@@ -40,7 +43,7 @@ class MoodComparisonProvider : HomeWidgetProvider() {
         appWidgetManager,
         intArrayOf(appWidgetId),
         HomeWidgetPlugin.getData(context),
-        "h",
+        "v",
     )
   }
 }

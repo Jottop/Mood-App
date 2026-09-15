@@ -19,6 +19,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -28,7 +29,8 @@ import org.json.JSONObject
  * Dibuja en NATIVO (sin motor Flutter) la escena del widget de comparación
  * "mía vs. amigo", a partir del cache que la app deja en el widget storage
  * (JSON: etiqueta + colores ARGB de cuerpo y aura). La geometría replica 1:1
- * la de `MoodComparisonScenePainter` (Dart, 360×220) a 2× (720×440), así el
+ * la de `MoodComparisonScenePainter` (Dart): horizontal 360×220 a 2×
+ * (720×440) y vertical 220×360 a 2× (440×720 — el horizontal girado), así el
  * look es el mismo que muestra el preview dentro de la app.
  *
  * Regla de rollover: si la fecha del cache no es HOY (el widget no pudo
@@ -38,6 +40,9 @@ import org.json.JSONObject
 object ComparisonWidgetPainter {
   const val WIDTH = 720
   const val HEIGHT = 440
+
+  private const val VERTICAL_WIDTH = 440
+  private const val VERTICAL_HEIGHT = 720
 
   private const val INK = 0xFF2B3A4A.toInt()
 
@@ -75,12 +80,21 @@ object ComparisonWidgetPainter {
 
   /**
    * Genera la escena completa. Los valores provienen del widget storage de
-   * home_widget (nombres de clave en `widget_cache_store.dart`).
+   * home_widget (nombres de clave en `widget_cache_store.dart`); `layoutJson`
+   * vale "v" para vertical (apiladas) o cualquier otra cosa/nulo para
+   * horizontal (lado a lado). `targetWidth`/`targetHeight` (px) permiten
+   * pintar EXACTAMENTE el marco real que el launcher le dio al widget: toda la
+   * geometría se deriva del lado corto, así el mismo diseño se adapta a
+   * cualquier tamaño sin espacios vacíos (con 0/0 usa los tamaños por defecto).
    */
-  fun draw(dateKey: String?, mineJson: String?, friendJson: String?): Bitmap {
-    val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-
+  fun draw(
+    dateKey: String?,
+    mineJson: String?,
+    friendJson: String?,
+    layoutJson: String?,
+    targetWidth: Int = 0,
+    targetHeight: Int = 0,
+  ): Bitmap {
     val mine = Bubble.from(mineJson)
     val friend = Bubble.from(friendJson)
 
@@ -92,14 +106,56 @@ object ComparisonWidgetPainter {
     val mineLabel = mine?.label ?: "Yo"
     val friendLabel = friend?.label ?: "—"
 
-    val margin = WIDTH * 0.04f
-    val gap = WIDTH * 0.033f
-    val cellWidth = (WIDTH - 2 * margin - gap) / 2f
+    return if (layoutJson == "v") {
+      drawVertical(
+          mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
+          if (targetWidth > 0) targetWidth else VERTICAL_WIDTH,
+          if (targetHeight > 0) targetHeight else VERTICAL_HEIGHT,
+      )
+    } else {
+      drawHorizontal(
+          mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
+          if (targetWidth > 0) targetWidth else WIDTH,
+          if (targetHeight > 0) targetHeight else HEIGHT,
+      )
+    }
+  }
 
-    val labelFont = HEIGHT * 0.10f
-    val labelTop = HEIGHT - (labelFont * 1.55f + 6f)
-    val bubbleDiameter = WIDTH * 0.44f
-    val bubbleCenterY = HEIGHT * 0.42f
+  private fun drawHorizontal(
+    mineColors: IntArray,
+    friendColors: IntArray,
+    mineAura: IntArray,
+    friendAura: IntArray,
+    mineLabel: String,
+    friendLabel: String,
+    width: Int = WIDTH,
+    height: Int = HEIGHT,
+  ): Bitmap {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val shortSide = min(width, height)
+    val margin = shortSide * 0.065f
+    val gap = shortSide * 0.054f
+    val cellWidth = (width - 2 * margin - gap) / 2f
+
+    var labelFont = shortSide * 0.10f
+    val labelBand = labelFont * 1.55f
+    var bubbleDiameter = min(shortSide * 0.72f, cellWidth)
+
+    // Ajuste por altura: el bloque (burbuja + hueco + etiqueta) debe caber en
+    // el lienzo con sus márgenes; si no, TODO se escala de forma uniforme.
+    val availableVert = height - 2 * margin
+    val block = bubbleDiameter + labelBand + labelFont * 0.25f
+    if (block > availableVert) {
+      val fit = availableVert / block
+      bubbleDiameter *= fit
+      labelFont *= fit
+    }
+
+    val gapToLabel = labelFont * 0.25f
+    val bubbleCenterY = height - margin - labelFont * 1.55f - gapToLabel - bubbleDiameter / 2f
+    val labelTop = bubbleCenterY + bubbleDiameter / 2f + gapToLabel
 
     val leftCenterX = margin + cellWidth / 2f
     val rightCenterX = margin + cellWidth + gap + cellWidth / 2f
@@ -107,9 +163,56 @@ object ComparisonWidgetPainter {
     paintBubble(canvas, leftCenterX, bubbleCenterY, bubbleDiameter, mineColors, mineAura)
     paintBubble(canvas, rightCenterX, bubbleCenterY, bubbleDiameter, friendColors, friendAura)
 
-    val labelOffset = labelTop + (labelFont * 1.55f - labelFont) / 2f
-    drawLabel(canvas, leftCenterX, labelOffset, cellWidth, mineLabel, labelFont)
-    drawLabel(canvas, rightCenterX, labelOffset, cellWidth, friendLabel, labelFont)
+    drawLabel(canvas, leftCenterX, labelTop, cellWidth, mineLabel, labelFont)
+    drawLabel(canvas, rightCenterX, labelTop, cellWidth, friendLabel, labelFont)
+
+    return bitmap
+  }
+
+  /** Escena en retrato (el horizontal girado): burbujas apiladas, la mía
+   *  arriba y la del amigo abajo, cada una con su etiqueta. Las burbujas y
+   *  etiquetas derivan del lado corto y, si dos filas apiladas no alcanzan a
+   *  caber a tamaño completo, TODO el bloque se escala de forma uniforme para
+   *  caber con los márgenes. */
+  private fun drawVertical(
+    mineColors: IntArray,
+    friendColors: IntArray,
+    mineAura: IntArray,
+    friendAura: IntArray,
+    mineLabel: String,
+    friendLabel: String,
+    width: Int = VERTICAL_WIDTH,
+    height: Int = VERTICAL_HEIGHT,
+  ): Bitmap {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val shortSide = min(width, height)
+    val margin = shortSide * 0.04f
+    var bubbleDiameter = shortSide * 0.72f
+    var labelFont = shortSide * 0.10f
+    val labelBand = labelFont * 1.6f
+    val rowGap = shortSide * 0.08f
+    var rowStep = bubbleDiameter + labelBand + rowGap
+    var total = 2f * rowStep
+    val available = height - 2 * margin
+    if (total > available) {
+      val fit = available / total
+      bubbleDiameter *= fit
+      labelFont *= fit
+      rowStep *= fit
+      total *= fit
+    }
+    val startY = max(margin, (height - total) / 2f)
+    val centerX = width / 2f
+    val labelMaxWidth = width - 2 * margin
+
+    paintBubble(canvas, centerX, startY + bubbleDiameter / 2f, bubbleDiameter, mineColors, mineAura)
+    drawLabel(canvas, centerX, startY + bubbleDiameter + (labelBand - labelFont) / 2f, labelMaxWidth, mineLabel, labelFont)
+
+    val friendY = startY + rowStep
+    paintBubble(canvas, centerX, friendY + bubbleDiameter / 2f, bubbleDiameter, friendColors, friendAura)
+    drawLabel(canvas, centerX, friendY + bubbleDiameter + (labelBand - labelFont) / 2f, labelMaxWidth, friendLabel, labelFont)
 
     return bitmap
   }

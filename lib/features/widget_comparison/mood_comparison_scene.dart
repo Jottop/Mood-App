@@ -8,6 +8,15 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/day_bubble_data.dart';
 import '../../core/widgets/mood_sphere_painters.dart';
 
+/// Disposición de las burbujas en el widget del escritorio.
+enum WidgetLayout {
+  /// Burbujas lado a lado (escena ancha).
+  horizontal,
+
+  /// Burbujas apiladas de arriba a abajo (escena en retrato).
+  vertical,
+}
+
 /// Tamaño lógico (dp) de la escena del widget. El launcher escala la imagen
 /// al tamaño real del widget conservando la proporción (fitCenter), así el
 /// diseño no se deforma al redimensionarlo.
@@ -20,25 +29,49 @@ import '../../core/widgets/mood_sphere_painters.dart';
 /// altura.
 const Size kComparisonSceneSize = Size(360, 220);
 
+/// Tamaño en retrato (220×360): el horizontal (360×220) girado, para el
+/// widget estirado en vertical, con las burbujas apiladas una sobre la otra.
+const Size kComparisonSceneVerticalSize = Size(220, 360);
+
+/// Tamaño de la escena según la disposición elegida.
+Size comparisonSceneSize(WidgetLayout layout) =>
+    layout == WidgetLayout.vertical
+        ? kComparisonSceneVerticalSize
+        : kComparisonSceneSize;
+
 /// Pinta la escena completa del widget de comparación (transparente): dos
-/// burbujas lado a lado — la mía y la del amigo — con su etiqueta debajo
-/// cada una. Es la misma composición que `MoodSphereVisual`, rasterizable
-/// fuera del árbol de widgets para obtener el PNG que muestra el AppWidget.
+/// burbujas — la mía y la del amigo — con su etiqueta debajo cada una,
+/// lado a lado (horizontal) o apiladas (vertical). Es la misma composición
+/// que `MoodSphereVisual`, rasterizable fuera del árbol de widgets para
+/// obtener el PNG que muestra el AppWidget.
 class MoodComparisonScenePainter extends CustomPainter {
   final DayBubbleData mine;
   final DayBubbleData friend;
   final String mineLabel;
   final String friendLabel;
+  final WidgetLayout layout;
 
   const MoodComparisonScenePainter({
     required this.mine,
     required this.friend,
     required this.mineLabel,
     required this.friendLabel,
+    required this.layout,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    switch (layout) {
+      case WidgetLayout.horizontal:
+        _paintHorizontal(canvas, size);
+        break;
+      case WidgetLayout.vertical:
+        _paintVertical(canvas, size);
+        break;
+    }
+  }
+
+  void _paintHorizontal(Canvas canvas, Size size) {
     final margin = size.width * 0.04;
     final gap = size.width * 0.033;
     final cellWidth = (size.width - 2 * margin - gap) / 2;
@@ -59,6 +92,46 @@ class MoodComparisonScenePainter extends CustomPainter {
 
     _paintLabel(canvas, leftCenter.dx, labelTop + (labelFont * 1.55 - labelFont) / 2, cellWidth, mineLabel, labelFont);
     _paintLabel(canvas, rightCenter.dx, labelTop + (labelFont * 1.55 - labelFont) / 2, cellWidth, friendLabel, labelFont);
+  }
+
+  void _paintVertical(Canvas canvas, Size size) {
+    final margin = size.width * 0.04;
+    // Las burbujas y etiquetas conservan el MISMO tamaño que en horizontal;
+    // como el lienzo vertical es el horizontal girado (220×360), dos filas
+    // apiladas no alcanzan a caber a tamaño completo: si desbordan, todo el
+    // bloque (burbujas + etiquetas) se escala de forma uniforme para caber
+    // con los márgenes. Así el look es idéntico, solo que el conjunto se
+    // compacta si hace falta.
+    var bubbleDiameter = kComparisonSceneSize.width * 0.44;
+    var labelFont = kComparisonSceneSize.height * 0.10;
+    final labelBand = labelFont * 1.6;
+    final rowGap = kComparisonSceneVerticalSize.width * 0.08;
+    var rowStep = bubbleDiameter + labelBand + rowGap;
+    var total = 2 * rowStep;
+    final available = size.height - 2 * margin;
+    if (total > available) {
+      final fit = available / total;
+      bubbleDiameter *= fit;
+      labelFont *= fit;
+      rowStep *= fit;
+      total *= fit;
+    }
+    final startY = math.max(margin, (size.height - total) / 2);
+    final centerX = size.width / 2;
+
+    for (var i = 0; i < 2; i++) {
+      final y = startY + rowStep * i;
+      final data = i == 0 ? mine : friend;
+      final label = i == 0 ? mineLabel : friendLabel;
+      _paintBubble(
+          canvas,
+          Size(bubbleDiameter, bubbleDiameter),
+          Offset(centerX, y + bubbleDiameter / 2),
+          data);
+      final labelTop = y + bubbleDiameter + (labelBand - labelFont) / 2;
+      _paintLabel(
+          canvas, centerX, labelTop, size.width - 2 * margin, label, labelFont);
+    }
   }
 
   void _paintBubble(Canvas canvas, Size size, Offset center, DayBubbleData data) {
@@ -149,6 +222,7 @@ class MoodComparisonScene extends StatefulWidget {
   final DayBubbleData friend;
   final String mineLabel;
   final String friendLabel;
+  final WidgetLayout layout;
 
   const MoodComparisonScene({
     super.key,
@@ -156,6 +230,7 @@ class MoodComparisonScene extends StatefulWidget {
     required this.friend,
     required this.mineLabel,
     required this.friendLabel,
+    required this.layout,
   });
 
   @override
@@ -185,6 +260,7 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
   /// re-rasterización.
   List<Object?> _makeSignature() {
     return [
+      widget.layout,
       for (final c in widget.mine.colorsTopToBottom) c.toARGB32(),
       for (final c in widget.mine.auraColors) c.toARGB32(),
       for (final c in widget.friend.colorsTopToBottom) c.toARGB32(),
@@ -205,6 +281,7 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
         widget.friend,
         mineLabel: widget.mineLabel,
         friendLabel: widget.friendLabel,
+        layout: widget.layout,
       );
       if (!mounted) return;
       // Los datos cambiaron mientras se renderizaba: se mantiene el frame
@@ -221,8 +298,9 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
   @override
   Widget build(BuildContext context) {
     final png = _png;
+    final sceneSize = comparisonSceneSize(widget.layout);
     return AspectRatio(
-      aspectRatio: kComparisonSceneSize.width / kComparisonSceneSize.height,
+      aspectRatio: sceneSize.width / sceneSize.height,
       child: Container(
         decoration: BoxDecoration(
           // Mismo degradado que `widget_bg.xml` (lavanda arriba → celeste abajo).
@@ -250,8 +328,10 @@ Future<Uint8List> renderComparisonScenePng(
   DayBubbleData friend, {
   String mineLabel = 'Yo',
   required String friendLabel,
+  required WidgetLayout layout,
   double pixelRatio = 2,
 }) async {
+  final sceneSize = comparisonSceneSize(layout);
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   canvas.scale(pixelRatio);
@@ -260,12 +340,13 @@ Future<Uint8List> renderComparisonScenePng(
     friend: friend,
     mineLabel: mineLabel,
     friendLabel: friendLabel,
-  ).paint(canvas, kComparisonSceneSize);
+    layout: layout,
+  ).paint(canvas, sceneSize);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(
-    (kComparisonSceneSize.width * pixelRatio).round(),
-    (kComparisonSceneSize.height * pixelRatio).round(),
+    (sceneSize.width * pixelRatio).round(),
+    (sceneSize.height * pixelRatio).round(),
   );
   try {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);

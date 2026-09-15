@@ -66,6 +66,21 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/appwidget_provider_comparison" />
         </receiver>
+
+        <!-- Widget de comparación VERTICAL: burbujas apiladas, marco más
+             largo que ancho. Comparte el cache del horizontal y dibuja la
+             escena en retrato. -->
+        <receiver
+            android:name=".MoodVerticalProvider"
+            android:exported="false"
+            android:label="@string/widget_comparison_vertical_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/appwidget_provider_vertical" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -1,4 +1,6 @@
 <resources>
     <string name="widget_comparison_label">Tu día · Comparar burbujas</string>
     <string name="widget_comparison_description">Compara tu burbuja de estado con la de un amigo.</string>
+    <string name="widget_comparison_vertical_label">Tu día · Comparar burbujas (vertical)</string>
+    <string name="widget_comparison_vertical_description">Burbujas apiladas: compara tu burbuja de estado con la de un amigo en vertical.</string>
 </resources>
