@@ -20,7 +20,7 @@ class AppColors {
     if (top == null || top == bgTop) return [bgTop, bgBottom];
     final hsl = HSLColor.fromColor(top);
     final bottom =
-        hsl.withLightness((hsl.lightness - 0.06).clamp(0.0, 1.0)).toColor();
+        hsl.withLightness((hsl.lightness - 0.03).clamp(0.0, 1.0)).toColor();
     return [top, bottom];
   }
 }

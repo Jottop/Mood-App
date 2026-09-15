@@ -33,13 +33,13 @@ const _fgPresets = <Color>[
 /// Tonos suaves para el fondo del Home/perfil (el primero es el estándar).
 const _homeBgPresets = <Color>[
   Color(0xFFEAF3FC), // bgTop (estándar)
-  Color(0xFFFBF3DE), // cream
-  Color(0xFFF8E1EC), // rosa pálido
-  Color(0xFFD6E8F9), // celeste
-  Color(0xFFE1F3E4), // verde pálido
-  Color(0xFFFCEAD6), // arena
-  Color(0xFFEDE4FA), // malva
-  Color(0xFFFDE1C7), // durazno
+  Color(0xFFFDF7EA), // crema
+  Color(0xFFFBEAF2), // rosa pálido
+  Color(0xFFE7F2FD), // celeste
+  Color(0xFFEDF9EF), // verde pálido
+  Color(0xFFFDF3E5), // arena
+  Color(0xFFF5F0FC), // malva
+  Color(0xFFFEF0E3), // durazno
 ];
 
 /// Editor del perfil propio: alias, avatar de fruta animada y los colores de
