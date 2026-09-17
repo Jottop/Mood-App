@@ -107,6 +107,9 @@ class WidgetComparisonService extends ChangeNotifier {
     // completa (igual que al volver a la app): la burbuja del amigo también
     // se mantiene al día, no solo la mía.
     unawaited(refresh());
+    // Con amigo elegido el fondo necesita el token de solo lectura para
+    // refrescar el widget con la app cerrada (sin rotar la sesión).
+    if (hasFriend) unawaited(ensureWidgetComparisonToken());
     // Con amigo elegido, el widget se re-fresca solo cada minuto.
     _ensurePeriodicRefresh();
   }
@@ -140,6 +143,9 @@ class WidgetComparisonService extends ChangeNotifier {
       // one-off inicial de la sesión ya se consumió sin amigo, esta reanuda
       // el refresco del widget con la app cerrada.
       unawaited(scheduleNextWidgetSync());
+      // El fondo consume el token de solo lectura (nunca la sesión): se
+      // asegura de que exista antes de replantar la cadena.
+      unawaited(ensureWidgetComparisonToken());
     }
   }
 

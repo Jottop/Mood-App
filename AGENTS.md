@@ -49,6 +49,23 @@ providers/Supabase directly; `LocalMoodViewData` wraps the local providers
   (predates the editable catalog) — trust the code.
 
 ## Repo-specific gotchas
+- **Session y widget**: la tarea de fondo del widget (`runWidgetBackgroundSync`)
+  NUNCA debe tocar el refresh token de la sesión. Antes rotaba el token
+  compartido con la app abierta (`setSession` en un cliente aislado) y eso
+  deslogueaba la app cada X min/horas. Hoy usa un token de solo lectura
+  (`widget_token` Edge Function, prefs `kWidgetComparisonToken`, hash SHA-256
+  en `widget_tokens` server-side) y llama a `widget_friend_bubble` (Edge
+  Function) para la burbuja del amigo. `AuthProvider` lo emite/rota:
+  `ensureWidgetComparisonToken()` (cache-first) y `rotateWidgetComparisonToken()`
+  en signOut. El snapshot de sesión (`session_snapshot.dart`) solo rescata
+  arranques en frío y quedó defensivo.
+- **Grants de `service_role`**: este proyecto NO hereda privilegios para
+  `service_role` (los grants a `anon`/`authenticated` se hacen a mano en
+  `init.sql`). Cualquier tabla nueva que una Edge Function lea/escriba con el
+  service role necesita un `grant` explícito, o falla con `permission denied
+  for table ...` (código 42501). `widget_tokens` recibe `grant all`;
+  `friendships`/`mood_entries`/`mood_catalog` reciben `grant select` para
+  `widget_friend_bubble`.
 - `dart:ui.Gradient.sweep` throws if `colorStops` is omitted with anything
   but exactly 2 colors: always pass evenly spaced stops (see
   `_AuraSimplePainter`).

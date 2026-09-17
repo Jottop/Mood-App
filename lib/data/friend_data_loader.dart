@@ -20,6 +20,32 @@ class _Cached {
   _Cached(this.at, this.data);
 }
 
+/// Construye un [FriendMoodViewData] inmutable a partir de las filas de la
+/// API (PostgREST o la Edge Function `widget_friend_bubble`, misma forma:
+/// `entries` con id/mood_id/timestamp/logged_at y `catalog` con
+/// id/label/emoji/color/is_special).
+FriendMoodViewData friendMoodViewDataFromRows({
+  required List<dynamic> entriesRows,
+  required List<dynamic> catalogRows,
+}) {
+  final entries = entriesRows.map((row) => MoodEntry(
+        id: row['id'] as String,
+        moodId: row['mood_id'] as String,
+        timestamp: DateTime.parse(row['timestamp'] as String).toLocal(),
+        loggedAt: DateTime.parse(row['logged_at'] as String).toLocal(),
+      )).toList();
+  final catalog = catalogRows.map((row) => MoodType(
+            id: row['id'] as String,
+            label: row['label'] as String,
+            // Saneo: los emojis del amigo fuera del pack se reencuadran a uno
+            // seguro para que nunca rendericen como cuadros vacíos.
+            emoji: EmojiPack.sanitize(row['emoji'] as String),
+            color: Color(row['color'] as int),
+            isSpecial: row['is_special'] as bool? ?? false,
+          )).toList();
+  return FriendMoodViewData(entries: entries, catalog: catalog);
+}
+
 /// Trae el snapshot read-only de un amigo (registros + catálogo) que
 /// alimenta su perfil y el calendario read-only. Es la misma consulta que
 /// hacía `FriendProfileScreen` internamente; ahora el widget de comparación
@@ -60,23 +86,10 @@ Future<FriendMoodViewData> fetchFriendMoodViewData(
   final entriesRows = results[0];
   final catalogRows = results[1];
 
-  final entries = entriesRows.map((row) => MoodEntry(
-        id: row['id'] as String,
-        moodId: row['mood_id'] as String,
-        timestamp: DateTime.parse(row['timestamp'] as String).toLocal(),
-        loggedAt: DateTime.parse(row['logged_at'] as String).toLocal(),
-      )).toList();
-  final catalog = catalogRows.map((row) => MoodType(
-            id: row['id'] as String,
-            label: row['label'] as String,
-            // Saneo: los emojis del amigo fuera del pack se reencuadran a uno
-            // seguro para que nunca rendericen como cuadros vacíos.
-            emoji: EmojiPack.sanitize(row['emoji'] as String),
-            color: Color(row['color'] as int),
-            isSpecial: row['is_special'] as bool? ?? false,
-          )).toList();
-
-  final view = FriendMoodViewData(entries: entries, catalog: catalog);
+  final view = friendMoodViewDataFromRows(
+    entriesRows: entriesRows,
+    catalogRows: catalogRows,
+  );
   if (client == null) {
     _cache[friendId] = _Cached(DateTime.now(), view);
   }

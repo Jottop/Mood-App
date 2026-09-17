@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/widgets/day_bubble_data.dart';
 
@@ -22,9 +23,37 @@ const kWidgetPrefFriendEntries = 'widget_comparison_friend_entries';
 const kWidgetPrefFriendCatalog = 'widget_comparison_friend_catalog';
 
 // Heartbeat de la app en primer plano (epoch millis): la tarea de fondo lo
-// lee para NO consumir el refresh token compartido mientras la app está
-// activa (ahí el widget ya se mantiene al día desde Flutter).
+// lee para NO consultar al servidor mientras la app está activa (ahí el
+// widget ya se mantiene al día desde Flutter).
 const kWidgetPrefAppActiveAt = 'widget_app_active_at';
+
+// Token de SOLO LECTURA del widget de comparación (emitido por la Edge
+// Function `widget_token` con la sesión en primer plano). La tarea de fondo
+// lo presenta a `widget_friend_bubble` para traer la burbuja del amigo SIN
+// tocar el refresh token de la sesión: antes lo rotaba con la app cerrada y
+// dejaba la app abierta con un token ya consumido (sesión perdida cada X
+// min/horas). Mismo nivel de "secret" que el snapshot viejo: prefs planas.
+const kWidgetComparisonToken = 'widget_comparison_token';
+
+/// Lee el token de solo lectura del widget guardado en prefs (o null).
+Future<String?> readWidgetComparisonToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(kWidgetComparisonToken);
+  return token == null || token.isEmpty ? null : token;
+}
+
+/// Guarda el token de solo lectura del widget en prefs planas.
+Future<void> saveWidgetComparisonToken(String token) async {
+  if (token.isEmpty) return;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(kWidgetComparisonToken, token);
+}
+
+/// Borra la copia local del token (al cerrar sesión o al invalidarlo).
+Future<void> clearWidgetComparisonToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(kWidgetComparisonToken);
+}
 
 // Cache de la escena consumido por el pintor nativo (JSON).
 const kWidgetDateKey = 'widget_date_key';

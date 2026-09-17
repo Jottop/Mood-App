@@ -5,15 +5,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/widget_comparison/widget_cache_store.dart';
 
-/// Snapshot de sesión (access + refresh token) en prefs planas, usado por
-/// las tareas de fondo del widget (WorkManager), donde no hay
-/// `FlutterSecureStorage`.
+/// Snapshot de sesión (access + refresh token) en prefs planas, usado solo
+/// por la app para recuperar la sesión más reciente al ARRANCAR en frío (la
+/// tarea de fondo del widget ya NO rota tokens: usa el token de solo lectura
+/// de `widget_token` y nunca toca la sesión).
 ///
-/// La app principal escribe aquí en cada login y en cada refresco de token;
-/// las tareas de fondo escriben de vuelta el token rotado tras usarlo (ver
-/// `widget_background_sync.dart`), así el snapshot siempre guarda el token
-/// MÁS reciente de la cuenta y ninguna de las dos partes refresca con uno ya
-/// consumido.
+/// La app escribía aquí en cada login/refresco de token; la tarea de fondo
+/// antes rotaba el refresh token compartido con la app abierta (y eso
+/// deslogueaba la sesión cada X min/horas). Hoy la app lo usa de forma
+/// defensiva: si una rotación quedó a medias (p. ej. el proceso se cerró en
+/// pleno refresh), el arranque adopta el token más reciente del snapshot en
+/// vez de refrescar con uno ya consumido. Ver `AuthProvider`.
 
 /// Lee el snapshot guardado (o null si no existe o está corrupto).
 Future<Map<String, dynamic>?> readSessionSnapshot() async {

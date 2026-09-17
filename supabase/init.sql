@@ -257,3 +257,32 @@ grant select, insert, update, delete on public.profiles      to authenticated;
 grant select, insert, update, delete on public.mood_catalog  to authenticated;
 grant select, insert, update, delete on public.mood_entries  to authenticated;
 grant select, insert, delete          on public.friendships  to authenticated;
+
+-- Las Edge Functions del widget (service role) leen amistades, registros y
+-- catálogo del amigo para armar su burbuja. Este proyecto no hereda esos
+-- privilegios, hay que concederlos de forma explícita (solo SELECT: nunca
+-- escriben en nombre del amigo).
+grant select on public.friendships  to service_role;
+grant select on public.mood_entries to service_role;
+grant select on public.mood_catalog to service_role;
+
+-- =====================================================================
+-- WIDGET TOKENS (ver supabase/widget_tokens.sql y supabase/functions/)
+-- Tokens de SOLO LECTURA del widget de comparación: la tarea de fondo ya
+-- NO rota el refresh token de la sesión (deslogueaba la app); usa este
+-- token opaco por usuario, verificado por las Edge Functions. Solo el
+-- service role accede (RLS sin políticas + revoke).
+-- =====================================================================
+create table if not exists public.widget_tokens (
+  user_id    uuid primary key references public.profiles(id) on delete cascade,
+  token_hash text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists widget_tokens_token_hash_key
+  on public.widget_tokens (token_hash);
+
+alter table public.widget_tokens enable row level security;
+
+revoke all on public.widget_tokens from anon, authenticated;

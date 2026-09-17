@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/profile.dart';
 import '../data/session_snapshot.dart';
+import '../features/widget_comparison/widget_background_sync.dart';
+import '../features/widget_comparison/widget_cache_store.dart';
 import '../services/network_timeout.dart';
 
 /// Estado de autenticación de la app.
@@ -316,10 +318,15 @@ class AuthProvider extends ChangeNotifier {
     // Cierre manual del usuario: el aviso de "sesión vencida" es solo para
     // expulsiones automáticas del arranque, no para este cierre.
     _sessionExpiredNotice = false;
+    // Invalida ANTES de cerrar (mientras la sesión aún vale) el token de solo
+    // lectura del widget: así una copia local que quedara no se reutiliza.
+    // Best-effort: si no hay red se limpia la copia local igual.
+    unawaited(rotateWidgetComparisonToken());
     await _auth.signOut();
     // el evento signedOut también lo limpia, pero por si el stream no
     // llegara (cierre forzado), removemos el snapshot acá.
     unawaited(_clearSessionSnapshot());
+    await clearWidgetComparisonToken();
   }
 
   /// Actualiza la personalización del perfil que ven los amigos: alias
