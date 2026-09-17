@@ -1,11 +1,11 @@
 ﻿{
-    "versionName":  "0.4.15",
-    "versionCode":  28,
-    "releaseDate":  "2026-09-15",
+    "versionName":  "0.4.16",
+    "versionCode":  29,
+    "releaseDate":  "2026-09-17",
     "notes":  [
-                  "Corregido un cuelgue al abrir el perfil de un amigo desde el calendario o el detalle de un dia"
+                  "Corregido: la app se deslogueaba sola cada cierto tiempo."
               ],
     "sizeBytes":  57903002,
-    "sha256":  "07a3db12e3d3460518bd7eddcc2cb8a8deaeba3431c824e69776296bd7a521c2",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.15/app-release.apk"
+    "sha256":  "2ff32f67ff5e8e13290e18759c553f464de12a4e6534ad8f8518c16627f4d579",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.16/app-release.apk"
 }
