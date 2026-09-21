@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/widgets/day_bubble_data.dart';
@@ -13,7 +12,6 @@ import '../../data/mood_view_data.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import 'widget_background_sync.dart';
-import 'widget_bg_prefs.dart';
 import 'widget_cache_store.dart';
 
 /// Orquesta el widget de comparación del escritorio:
@@ -66,10 +64,6 @@ class WidgetComparisonService extends ChangeNotifier {
   String? get lastError => _lastError;
   DateTime? get lastRenderedAt => _lastRenderedAt;
 
-  /// Color de fondo personalizado del widget (`null` = degradado clásico).
-  /// Lo publica [widgetBgColor]; la pantalla de configuración lo escucha.
-  Color? get widgetBackgroundColor => widgetBgColor.value;
-
   bool get hasFriend => _friendId != null && _friendId!.isNotEmpty;
 
   void _scheduleOnChange() {
@@ -109,8 +103,6 @@ class WidgetComparisonService extends ChangeNotifier {
       }
     }
     notifyListeners();
-    // Fondo personalizado del widget (prefs locales) para las publicaciones.
-    await loadWidgetBgColor();
     // Re-fresca el snapshot del amigo (con dirty-check) y publica la escena
     // completa (igual que al volver a la app): la burbuja del amigo también
     // se mantiene al día, no solo la mía.
@@ -276,12 +268,6 @@ class WidgetComparisonService extends ChangeNotifier {
         friend: friend,
         label: _friendName ?? '—',
       );
-      // El fondo personalizado también viaja en cada publicación: si el
-      // storage se limpiara, el widget recupera el color la próxima vez.
-      final bg = widgetBgColor.value;
-      if (bg != null) {
-        await saveWidgetBackground(bg.toARGB32());
-      }
       await refreshWidgetPreview();
       _lastRenderedAt = DateTime.now();
     } catch (_) {

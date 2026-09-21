@@ -52,15 +52,13 @@ object WidgetComparisonRenderer {
     val dateKey = widgetData.getString("widget_date_key", null)
     val mineJson = widgetData.getString("widget_mine_json", null)
     val friendJson = widgetData.getString("widget_friend_json", null)
-    // Color de fondo elegido por el usuario (ARGB); -1 = sin personalizar.
-    val bgArgb = widgetData.getInt("widget_bg_argb", -1)
 
     if (mineJson != null && friendJson != null) {
       for (widgetId in appWidgetIds) {
         val (targetWidth, targetHeight) = widgetSize(context, appWidgetManager, widgetId)
         val bitmap =
             ComparisonWidgetPainter.draw(dateKey, mineJson, friendJson, layout,
-                targetWidth, targetHeight, bgArgb)
+                targetWidth, targetHeight)
         remoteViews.setImageViewBitmap(R.id.comparison_image, bitmap)
         appWidgetManager.updateAppWidget(widgetId, remoteViews)
       }

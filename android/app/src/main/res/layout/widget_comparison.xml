@@ -5,8 +5,8 @@
     android:layout_height="match_parent">
 
     <!-- El fondo redondeado con degradado lo pinta ahora el propio bitmap de
-         ComparisonWidgetPainter (color clásico o el que elija el usuario);
-         la escena ocupa el widget completo sin margen añadido. -->
+         ComparisonWidgetPainter (degradado clásico); la escena ocupa el widget
+         completo sin margen añadido. -->
     <ImageView
         android:id="@+id/comparison_image"
         android:layout_width="match_parent"
