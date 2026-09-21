@@ -1,12 +1,12 @@
 {
-    "versionName":  "0.4.17",
-    "versionCode":  30,
+    "versionName":  "0.4.18",
+    "versionCode":  31,
     "releaseDate":  "2026-09-21",
     "notes":  [
-                  "Nuevo: el widget del escritorio tiene color de fondo configurable (mismas opciones que el fondo del perfil, incluso color personalizado). Se aplica al instante a los dos widgets.",
-                  "Corregido: el resumen de emociones del día ya no se rompe con muchas emociones; los iconos pasan a una fila nueva."
+                  "Eliminado: el widget del escritorio vuelve a su degradado clasico (se quita el color de fondo configurable, que provocaba fallos en algunos dispositivos).",
+                  "Corregido: el resumen de emociones del dia ya no se rompe con muchas emociones; los iconos pasan a una fila nueva."
               ],
-    "sizeBytes":  57919466,
-    "sha256":  "50c4dd61dc32b5695cf64a3ef135d93ebeaca6f65944c63a1a99d8fb9330f171",
-    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.17/app-release.apk"
+    "sizeBytes":  57903082,
+    "sha256":  "b8852f827a631ff47d9caac45cc0ff34736a87f3ee1064524c24dd2deedb03b6",
+    "apkUrl":  "https://github.com/Jottop/Mood-App/releases/download/v0.4.18/app-release.apk"
 }
