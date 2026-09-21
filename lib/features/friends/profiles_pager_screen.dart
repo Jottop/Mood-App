@@ -16,9 +16,10 @@ import 'friend_profile_page.dart';
 /// Home, por la derecha el último amigo— el swipe rebota.
 ///
 /// La navegación externa (píldora del hub, hoja de amigos) salta
-/// programáticamente por la misma ventana: va avanzando de uno en uno por el
-/// [PageController] para que recorrer varios perfiles se sienta como
-/// deslizarse hacia ellos.
+/// programáticamente DIRECTO al perfil elegido, sin animación intermedia:
+/// la ventana del pager se reconstruye en torno al destino y la selección de
+/// la píldora se remarca al instante. El deslizamiento entre perfiles queda
+/// para el gesto manual del usuario.
 class ProfilesPagerScreen extends StatefulWidget {
   const ProfilesPagerScreen({super.key});
 
@@ -164,57 +165,72 @@ class ProfilesPagerScreenState extends State<ProfilesPagerScreen> {
     return index < 0 ? -1 : index + 1;
   }
 
-  /// Vuelve a la página 0 (el Home real) deslizando programáticamente por la
-  /// ventana. Si ya estamos en el Home no hace nada.
+  /// Vuelve a la página 0 (el Home real) de inmediato, sin pasar por los
+  /// perfiles intermedios. Si ya estamos en el Home no hace nada.
   void goHome() {
     if (!mounted || _clampedIndex == 0) return;
-    _navigateToIndex(0);
+    _jumpInstant(0);
   }
 
-  /// Salta al perfil de un amigo (o al Home si [friendId] es null) dentro del
-  /// pager. Sin efecto si no existe o si ya está a la vista.
+  /// Salta DIRECTO al perfil de un amigo (o al Home si [friendId] es null)
+  /// dentro del pager: el cambio es instantáneo, no atraviesa los perfiles
+  /// intermedios como el gesto manual. Sin efecto si no existe o si ya está a
+  /// la vista.
   void jumpToProfile(String? friendId) {
     if (!mounted) return;
     final target = _targetIndexFor(friendId);
     if (target < 0 || target == _clampedIndex) return;
-    _navigateToIndex(target);
+    _jumpInstant(target);
   }
 
-  /// Retorna al Home de inmediato (para el back del sistema): sin animación,
-  /// la pantalla cambia en el mismo frame y la píldora vuelve a remarcar mi
-  /// avatar.
-  void _goHomeInstant() {
+  /// Cambia la página visible al índice [target] al instante: reconstruye la
+  /// ventana del pager en torno al destino y re-centra el scroll sin
+  /// animación (mismo mecanismo que el back del sistema). No atraviesa los
+  /// perfiles intermedios.
+  void _jumpInstant(int target) {
     _pendingDirection = 0;
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = target;
     });
     _syncSelection();
     _controller.jumpToPage(_centerPage);
   }
 
-  /// Salto programático a un índice cualquiera avanzando de a una página por
-  /// la ventana: cada `animateToPage` cruza una página, el asentamiento la
-  /// rebasa al centro (idéntico rebase del gesto) y así sucesivamente hasta
-  /// llegar al destino. Viajar varios perfiles se siente como deslizarse.
-  Future<void> _navigateToIndex(int target) async {
-    while (mounted && _clampedIndex != target) {
-      final before = _clampedIndex;
-      final direction = target > _clampedIndex ? 1 : -1;
-      final nextPage = _centerPage + direction;
-      if (nextPage >= _pageCount) return;
-      await _controller.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-      // El asentamiento del scroll normalmente ya aplicó el rebase (vía la
-      // notificación); si el futuro ganó la carrera, se fuerza acá. El rebase
-      // es idempotente (frena con _pendingDirection == 0).
-      _applyPendingRebase();
-      // Sin avance (p.ej. pager oculto bajo rutas con viewport en 0): se corta
-      // el salto para no quedarse girando en el loop.
-      if (_clampedIndex == before) return;
+  /// Retorna al Home de inmediato (para el back del sistema): sin animación,
+  /// la pantalla cambia en el mismo frame y la píldora vuelve a remarcar mi
+  /// avatar.
+  void _goHomeInstant() => _jumpInstant(0);
+
+  /// Página de la ventana que debe ocupar un hijo keyed ([ValueKey('home')] /
+  /// [ValueKey('f:<id>')]) tras un rebase, o null si ya no pertenece a la
+  /// ventana. Gracias a este callback el pager PUEDE mudar los elementos entre
+  /// slots en vez de re-montarlos: al asentarse un swipe, el amigo aterrizado
+  /// pasa de página lateral a central conservando su State (sin spinner, sin
+  /// recargar su perfil y sin reiniciar la animación de su burbuja).
+  ///
+  /// Solo devuelve un slot si el dueño del mapeo actual en esa página coincide
+  /// con la clave (saltos programáticos de más de una página, listas cambiadas
+  /// o bordes re-montan como antes, sin correr riesgos de reutilización).
+  int? _pageForKey(Key key) {
+    if (key is! ValueKey<String>) return null;
+    final raw = key.value;
+    final friends = context.read<FriendsProvider>().friends;
+
+    final int index;
+    if (raw == 'home') {
+      index = 0;
+    } else if (raw.startsWith('f:')) {
+      final friendIndex = friends.indexWhere((f) => f.id == raw.substring(2));
+      if (friendIndex < 0) return null;
+      index = friendIndex + 1;
+    } else {
+      return null;
     }
+
+    final page = _centerPage + (index - _clampedIndex);
+    if (page < 0 || page >= _pageCount) return null;
+    if (_indexForPage(page) != index) return null;
+    return page;
   }
 
   @override
@@ -245,20 +261,32 @@ class ProfilesPagerScreenState extends State<ProfilesPagerScreen> {
           if (notification.depth == 0) _applyPendingRebase();
           return false;
         },
-        child: PageView.builder(
+        child: PageView.custom(
           controller: _controller,
-          itemCount: _pageCount,
           onPageChanged: _onPageChanged,
-          itemBuilder: (context, page) {
-            final owner = _ownerForPage(page);
-            if (owner == null) {
-              return const HomeScreen(key: ValueKey('home'));
-            }
-            return FriendProfilePage(
-              key: ValueKey('f:${owner.id}'),
-              friend: owner,
-            );
-          },
+          // Mantiene construidas las páginas vecinas (un viewport de cache):
+          // sin esto, el pager poda al Home al reposar y al deslizar hacia él
+          // se construye en medio del arrastre (es la página más pesada) → el
+          // gesto se siente con delay. Con cache las páginas ya están listas.
+          allowImplicitScrolling: true,
+          childrenDelegate: SliverChildBuilderDelegate(
+            (context, page) {
+              final owner = _ownerForPage(page);
+              if (owner == null) {
+                return const HomeScreen(key: ValueKey('home'));
+              }
+              return FriendProfilePage(
+                key: ValueKey('f:${owner.id}'),
+                friend: owner,
+              );
+            },
+            childCount: _pageCount,
+            // Sin esto, cada rebase re-mapea las 3 páginas y se re-montan
+            // (spinner + refetch + reinicio de la burbuja) → el contenido
+            // "parpadea" al deslizar. Con el callback las páginas keyed se
+            // mudan de slot conservando su State.
+            findChildIndexCallback: _pageForKey,
+          ),
         ),
       ),
     );
