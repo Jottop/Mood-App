@@ -60,6 +60,14 @@ const kWidgetDateKey = 'widget_date_key';
 const kWidgetMineJson = 'widget_mine_json';
 const kWidgetFriendJson = 'widget_friend_json';
 
+// Color de fondo del widget (ARGB) que el painter nativo rasteriza como
+// tarjeta redondeada detrás de las burbujas. En el storage del widget se
+// escribe SIEMPRE como cadena hex '#AARRGGBB' (jamás como número): un ARGB
+// opaco supera Int.MAX_VALUE y home_widget lo guardaría como Long, y el
+// `getInt` nativo crasheaba (ClassCastException). Ausente/vacía (= -1 en
+// Kotlin) = el degradado clásico por defecto.
+const kWidgetBgArgb = 'widget_bg_argb';
+
 // Proveedores AppWidget que deben repintarse (horizontal y vertical).
 const kWidgetProviderName = 'com.example.mood_app.MoodComparisonProvider';
 const kWidgetVerticalProviderName = 'com.example.mood_app.MoodVerticalProvider';
@@ -94,6 +102,21 @@ Future<void> saveWidgetFriend({
   required String label,
 }) =>
     HomeWidget.saveWidgetData(kWidgetFriendJson, _bubbleJson(label, friend));
+
+/// Guarda el color de fondo elegido para el widget (ARGB) como STRING hex
+/// `#AARRGGBB`: el painter nativo lo parsea con defensa (ver
+/// `widgetBackgroundArgb` en Kotlin) y lo convierte en el degradado de la
+/// tarjeta; sin él usa el clásico. Nunca se escribe como número para no caer
+/// en el Long/Int del plugin (crash histórico).
+Future<void> saveWidgetBackground(int argb) => HomeWidget.saveWidgetData(
+    kWidgetBgArgb,
+    '#${argb.toRadixString(16).padLeft(8, '0').toUpperCase()}');
+
+/// Sanea el fondo cuando no hay color personalizado: escribe una cadena vacía
+/// (leída como -1 en Kotlin → degradado clásico) para que restos de versiones
+/// viejas guardados como int/Long no dejen el widget con un color huérfano.
+Future<void> clearWidgetBackground() =>
+    HomeWidget.saveWidgetData(kWidgetBgArgb, '');
 
 /// Pide a Android que repinte los AppWidget (horizontal y vertical) con el
 /// cache recién escrito.

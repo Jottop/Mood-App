@@ -52,13 +52,15 @@ object WidgetComparisonRenderer {
     val dateKey = widgetData.getString("widget_date_key", null)
     val mineJson = widgetData.getString("widget_mine_json", null)
     val friendJson = widgetData.getString("widget_friend_json", null)
+    // Color de fondo elegido por el usuario (ARGB); null = sin personalizar.
+    val bgArgb = widgetBackgroundArgb(widgetData)
 
     if (mineJson != null && friendJson != null) {
       for (widgetId in appWidgetIds) {
         val (targetWidth, targetHeight) = widgetSize(context, appWidgetManager, widgetId)
         val bitmap =
             ComparisonWidgetPainter.draw(dateKey, mineJson, friendJson, layout,
-                targetWidth, targetHeight)
+                targetWidth, targetHeight, bgArgb)
         remoteViews.setImageViewBitmap(R.id.comparison_image, bitmap)
         appWidgetManager.updateAppWidget(widgetId, remoteViews)
       }
@@ -102,6 +104,37 @@ object WidgetComparisonRenderer {
       appWidgetManager.updateAppWidgetOptions(verticalWidgetId, options)
     } catch (_: Exception) {
       // Ignorado por launcher que no soporta tamaños sugeridos.
+    }
+  }
+
+  /** Lee el color de fondo del widget tolerando TODOS los formatos que las
+   *  versiones dejaron (o podrían dejar) en el storage: la app actual escribe
+   *  una cadena hex '#AARRGGBB', pero versiones antiguas guardaron un int y —
+   *  como un ARGB opaco supera Int.MAX_VALUE — el plugin de home_widget lo
+   *  persistía como Long. Devuelve null (sin personalizar) ante ausencia,
+   *  formato raro o malformado, y JAMÁS lanza.
+   *
+   *  Ojo: NO se usa el signo para distinguir "sin color". Todo ARGB opaco
+   *  (alpha >= 0x80) alojado en un Int con signo queda NEGATIVO, así que el
+   *  centinela tiene que ser null y el painter compara contra null.
+   */
+  private fun widgetBackgroundArgb(data: SharedPreferences): Int? {
+    val raw = data.all["widget_bg_argb"] ?: return null
+    return when (raw) {
+      is Int -> raw
+      is Long -> raw.toInt()
+      is String -> parseArgb(raw)
+      else -> null
+    }
+  }
+
+  private fun parseArgb(raw: String): Int? {
+    val hex = raw.removePrefix("#")
+    if (hex.length != 8) return null
+    return try {
+      java.lang.Long.parseLong(hex, 16).toInt()
+    } catch (_: NumberFormatException) {
+      null
     }
   }
 

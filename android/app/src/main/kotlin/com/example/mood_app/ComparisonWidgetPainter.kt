@@ -95,6 +95,7 @@ object ComparisonWidgetPainter {
     layoutJson: String?,
     targetWidth: Int = 0,
     targetHeight: Int = 0,
+    bgArgb: Int? = null,
   ): Bitmap {
     val mine = Bubble.from(mineJson)
     val friend = Bubble.from(friendJson)
@@ -112,12 +113,14 @@ object ComparisonWidgetPainter {
           mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
           if (targetWidth > 0) targetWidth else VERTICAL_WIDTH,
           if (targetHeight > 0) targetHeight else VERTICAL_HEIGHT,
+          bgArgb,
       )
     } else {
       drawHorizontal(
           mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
           if (targetWidth > 0) targetWidth else WIDTH,
           if (targetHeight > 0) targetHeight else HEIGHT,
+          bgArgb,
       )
     }
   }
@@ -131,11 +134,12 @@ object ComparisonWidgetPainter {
     friendLabel: String,
     width: Int = WIDTH,
     height: Int = HEIGHT,
+    bgArgb: Int? = null,
   ): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    paintBackground(canvas, width, height)
+    paintBackground(canvas, width, height, bgArgb)
 
     val shortSide = min(width, height)
     val margin = shortSide * 0.065f
@@ -186,11 +190,12 @@ object ComparisonWidgetPainter {
     friendLabel: String,
     width: Int = VERTICAL_WIDTH,
     height: Int = VERTICAL_HEIGHT,
+    bgArgb: Int? = null,
   ): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    paintBackground(canvas, width, height)
+    paintBackground(canvas, width, height, bgArgb)
 
     val shortSide = min(width, height)
     val margin = shortSide * 0.04f
@@ -225,26 +230,49 @@ object ComparisonWidgetPainter {
   // ──────────────────────────────────────────── fondo ────────────────────────────────────────────
 
   /** Pinta la tarjeta redondeada de fondo (grada la escena): el degradado
-   *  clásico de `widget_bg.xml` (lavanda arriba → celeste abajo). */
-  private fun paintBackground(canvas: Canvas, width: Int, height: Int) {
+   *  clásico de `widget_bg.xml` (lavanda arriba → celeste abajo), o el del
+   *  color que el usuario elige en la configuración del widget (el mismo
+   *  degradado suave que usa la vista de perfil: el color en lo alto, un
+   *  poquito más profundo hacia abajo). `bgArgb == null` = sin personalizar.
+   *
+   *  El centinela es NULL y no un valor negativo: todo ARGB opaco
+   *  (alpha >= 0x80) alojado en un Int con signo queda negativo, así que un
+   *  test de signo confundiría los colores de verdad con "sin personalizar".
+   */
+  private fun paintBackground(canvas: Canvas, width: Int, height: Int, bgArgb: Int? = null) {
     val shortSide = min(width, height)
     // 28dp de radio a la escala de diseño (lado corto 220dp) → proporcional.
     val radius = shortSide * 28f / 220f
     val clip = Path().apply {
       addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW)
     }
+    val top = if (bgArgb == null) 0xFFEBDFF7.toInt() else bgArgb
+    val bottom = if (bgArgb == null) 0xFFD9E9FB.toInt() else darken(bgArgb, -0.04f)
     canvas.save()
     canvas.clipPath(clip)
     canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint {
       shader = LinearGradient(
           0f, 0f, 0f, height.toFloat(),
-          intArrayOf(0xFFEBDFF7.toInt(), 0xFFD9E9FB.toInt()),
+          intArrayOf(top, bottom),
           floatArrayOf(0f, 1f),
           Shader.TileMode.CLAMP,
       )
     })
     canvas.restore()
   }
+
+  /** Oscurece/aplana un ARGB: `delta` en rango [-1, 1] suma el canal G/B
+   *  (siempre y por igual, sin tocar alfa); negativo = oscurecer. Así el
+   *  fondo del color elegido mantiene el mismo tratamiento suave del perfil. */
+  private fun darken(argb: Int, delta: Float): Int {
+    val a = (argb ushr 24) and 0xFF
+    val r = (argb ushr 16) and 0xFF
+    val g = ((argb ushr 8) and 0xFF) * (1f + delta)
+    val b = (argb and 0xFF) * (1f + delta)
+    return (a shl 24) or (clamp255(r.toInt()) shl 16) or (clamp255(g.toInt()) shl 8) or clamp255(b.toInt())
+  }
+
+  private fun clamp255(v: Int): Int = min(255, max(0, v))
 
   private fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
