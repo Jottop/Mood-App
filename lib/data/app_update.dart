@@ -66,7 +66,13 @@ class AppUpdateService {
           .get(Uri.parse(kUpdateManifestUrl))
           .timeout(const Duration(seconds: 12));
       if (response.statusCode != 200) return null;
-      final decoded = jsonDecode(response.body);
+      // Defensivo: un BOM UTF-8 al inicio del manifiesto rompería el
+      // `jsonDecode` (json puro no admite BOM) y el chequeo fallaría en
+      // silencio. El tool de publicación lo escribe sin BOM, pero toleramos
+      // ambos por si un editor/proxy lo vuelve a añadir.
+      var body = response.body;
+      if (body.startsWith('\uFEFF')) body = body.substring(1);
+      final decoded = jsonDecode(body.trim());
       if (decoded is! Map<String, dynamic>) return null;
       return AppUpdateInfo.fromJson(decoded);
     } catch (_) {

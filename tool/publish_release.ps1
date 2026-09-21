@@ -41,7 +41,9 @@ if (-not $SupabaseUrl -or -not $SupabaseKey) {
 # -- 1) versiones + build ----------------------------------------------------
 $pubspec = Get-Content -LiteralPath "pubspec.yaml" -Raw
 $pubspec = $pubspec -replace "(?m)^version:\s*\S+\s*$", "version: ${Version}+${Build}"
-Set-Content -LiteralPath "pubspec.yaml" -Value $pubspec -NoNewline -Encoding UTF8
+# UTF-8 SIN BOM: un BOM en pubspec.yaml/manifest.json rompe el parser de la
+# app (`jsonDecode`) y las herramientas de Flutter.
+[System.IO.File]::WriteAllText((Join-Path (Get-Location) "pubspec.yaml"), $pubspec, (New-Object System.Text.UTF8Encoding($false)))
 
 flutter build apk --release `
   --dart-define=SUPABASE_URL=$SupabaseUrl `
@@ -65,7 +67,7 @@ $manifest = [ordered]@{
   apkUrl      = "https://github.com/Jottop/Mood-App/releases/download/v$Version/app-release.apk"
 }
 $manifestJson = $manifest | ConvertTo-Json -Depth 4
-Set-Content -LiteralPath "docs\manifest.json" -Value $manifestJson -NoNewline -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path (Get-Location) "docs\manifest.json"), $manifestJson, (New-Object System.Text.UTF8Encoding($false)))
 
 # -- 3) commit + push --------------------------------------------------------
 $notesText = ($Notes -join "`n`n").Trim()
