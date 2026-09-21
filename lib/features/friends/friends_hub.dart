@@ -261,6 +261,11 @@ class _FriendsHubOverlayState extends State<FriendsHubOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // Se observa la lista de amigos: cuando cambia (p. ej. al llegar por red
+    // tras el arranque) el overlay se rebuilda y re-mide la píldora, así el
+    // centro/altura usan el ancho real y la píldora no se corre a la derecha
+    // al cerrar y abrir la app.
+    context.watch<FriendsProvider>();
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return LayoutBuilder(builder: (context, constraints) {
       if (keyboardOpen) {
