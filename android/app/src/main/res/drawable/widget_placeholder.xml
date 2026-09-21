@@ -11,6 +11,19 @@
     android:viewportWidth="360"
     android:viewportHeight="220">
 
+    <!-- Tarjeta redondeada de fondo (antes la pintaba el FrameLayout): mismo
+         degradado clásico que rasteriza ComparisonWidgetPainter. -->
+    <path android:pathData="M28,0 L332,0 A28,28 0 0 1 360,28 L360,192 A28,28 0 0 1 332,220 L28,220 A28,28 0 0 1 0,192 L0,28 A28,28 0 0 1 28,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="0" android:endY="220"
+                android:startColor="#FFEBDFF7"
+                android:endColor="#FFD9E9FB" />
+        </aapt:attr>
+    </path>
+
     <!-- Burbuja izquierda (yo) -->
     <path android:pathData="M92.25,92.4 m-79.2,0 a79.2,79.2 0 1,0 158.4,0 a79.2,79.2 0 1,0 -158.4,0">
         <aapt:attr name="android:fillColor">

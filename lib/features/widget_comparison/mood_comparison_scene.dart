@@ -213,16 +213,20 @@ class _WidgetSceneAuraPainter extends CustomPainter {
 
 /// Preview en vivo de la escena: muestra el MISMO PNG byte a byte que se
 /// instala en el AppWidget (generado con [renderComparisonScenePng]), sobre
-/// el degradado pastel que define `widget_bg.xml`. Al rasterizar fuera del
-/// árbol de widgets y mostrarlo como imagen, la preview no puede divergir
-/// de lo que queda en el escritorio. Se regenera cuando cambia tu burbuja,
-/// la del amigo o la etiqueta.
+/// el degradado pastel de la tarjeta real (por defecto el de `widget_bg.xml`;
+/// con [background] personalizado, el degradado del color elegido, igual que
+/// rasteriza el painter nativo). Al rasterizar fuera del árbol de widgets y
+/// mostrarlo como imagen, la preview no puede divergir de lo que queda en el
+/// escritorio. Se regenera cuando cambia tu burbuja, la del amigo o la etiqueta.
 class MoodComparisonScene extends StatefulWidget {
   final DayBubbleData mine;
   final DayBubbleData friend;
   final String mineLabel;
   final String friendLabel;
   final WidgetLayout layout;
+
+  /// Color de fondo personalizado del widget. `null` = degradado clásico.
+  final Color? background;
 
   /// Tope de altura del recuadro de la preview. La escena mantiene su
   /// proporción real y se centra en el ancho disponible; el PNG rasterizado
@@ -237,6 +241,7 @@ class MoodComparisonScene extends StatefulWidget {
     required this.mineLabel,
     required this.friendLabel,
     required this.layout,
+    this.background,
     this.maxHeight,
   });
 
@@ -306,16 +311,26 @@ class _MoodComparisonSceneState extends State<MoodComparisonScene> {
   Widget build(BuildContext context) {
     final png = _png;
     final sceneSize = comparisonSceneSize(widget.layout);
+    // Mismo degradado que rasteriza el widget: el clásico de `widget_bg.xml`
+    // (lavanda arriba → celeste abajo) o, con color personalizado, el degradado
+    // del color elegido (solo un poco más profundo hacia abajo).
+    final background = widget.background;
+    final gradient = background == null
+        ? const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEBDFF7), Color(0xFFD9E9FB)],
+          )
+        : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: AppColors.bgGradient(background),
+          );
     final preview = AspectRatio(
       aspectRatio: sceneSize.width / sceneSize.height,
       child: Container(
         decoration: BoxDecoration(
-          // Mismo degradado que `widget_bg.xml` (lavanda arriba → celeste abajo).
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEBDFF7), Color(0xFFD9E9FB)],
-          ),
+          gradient: gradient,
           borderRadius: BorderRadius.circular(28),
         ),
         clipBehavior: Clip.antiAlias,

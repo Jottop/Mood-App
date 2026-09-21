@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_snackbar.dart';
+import '../../core/widgets/color_row.dart';
 import '../../core/widgets/day_bubble_data.dart';
 import '../../data/mood_view_data.dart';
 import '../../state/friends_provider.dart';
 import '../../state/mood_catalog_provider.dart';
 import '../../state/mood_provider.dart';
 import 'mood_comparison_scene.dart';
+import 'widget_bg_prefs.dart';
 import 'widget_comparison_service.dart';
 
 /// Configuración de los widgets de comparación del escritorio: elegir el
@@ -32,6 +34,20 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
     HomeWidget.isRequestPinWidgetSupported().then((ok) {
       if (mounted) setState(() => _pinSupported = ok);
     });
+    // Al cambiar el color de fondo del widget las previews de arriba se
+    // repintan con el nuevo degradado (mismo `ValueNotifier` que escribe el
+    // picker).
+    widgetBgColor.addListener(_onWidgetBgChanged);
+  }
+
+  void _onWidgetBgChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widgetBgColor.removeListener(_onWidgetBgChanged);
+    super.dispose();
   }
 
   Future<void> _pinWidget(BuildContext context, String providerName) async {
@@ -100,6 +116,7 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
               friendLabel: service.friendName ?? '—',
               installLabel: 'Instalar widget horizontal',
               rendering: service.rendering,
+              background: service.widgetBackgroundColor,
               onInstall: () => _pinWidget(
                   context, 'com.example.mood_app.MoodComparisonProvider'),
             ),
@@ -116,8 +133,24 @@ class _WidgetComparisonScreenState extends State<WidgetComparisonScreen> {
               friendLabel: service.friendName ?? '—',
               installLabel: 'Instalar widget vertical',
               rendering: service.rendering,
+              background: service.widgetBackgroundColor,
               onInstall: () => _pinWidget(
                   context, 'com.example.mood_app.MoodVerticalProvider'),
+            ),
+            const SizedBox(height: 16),
+            // Las mismas opciones que al cambiar el fondo del perfil
+            // (presets suaves + color personalizado). Se guarda al tocar y
+            // el widget se repinta al instante.
+            ColorRow(
+              label: 'Color de fondo del widget',
+              current: widgetBgColor.value,
+              presets: AppColors.homeBgPresets,
+              onPick: (c) => saveWidgetBackgroundColor(c),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Mismas opciones que en tu perfil. Se aplica al instante a los dos widgets.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 12),
             if (service.lastError != null)
@@ -213,6 +246,7 @@ class _WidgetCard extends StatelessWidget {
   final String friendLabel;
   final String installLabel;
   final bool rendering;
+  final Color? background;
   final VoidCallback onInstall;
 
   const _WidgetCard({
@@ -225,6 +259,7 @@ class _WidgetCard extends StatelessWidget {
     required this.friendLabel,
     required this.installLabel,
     required this.rendering,
+    this.background,
     required this.onInstall,
   });
 
@@ -256,6 +291,7 @@ class _WidgetCard extends StatelessWidget {
             mineLabel: mineLabel,
             friendLabel: friendLabel,
             layout: layout,
+            background: background,
             // La preview vertical se muestra compacta (tope de alto) para no
             // robarle todo el espacio a la tarjeta; el horizontal ocupa el
             // ancho completo.

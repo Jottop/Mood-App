@@ -60,6 +60,11 @@ const kWidgetDateKey = 'widget_date_key';
 const kWidgetMineJson = 'widget_mine_json';
 const kWidgetFriendJson = 'widget_friend_json';
 
+// Color de fondo del widget (ARGB) que el painter nativo rasteriza como
+// tarjeta redondeada detrás de las burbujas. Ausente (= -1 en Kotlin) = el
+// degradado clásico por defecto.
+const kWidgetBgArgb = 'widget_bg_argb';
+
 // Proveedores AppWidget que deben repintarse (horizontal y vertical).
 const kWidgetProviderName = 'com.example.mood_app.MoodComparisonProvider';
 const kWidgetVerticalProviderName = 'com.example.mood_app.MoodVerticalProvider';
@@ -94,6 +99,11 @@ Future<void> saveWidgetFriend({
   required String label,
 }) =>
     HomeWidget.saveWidgetData(kWidgetFriendJson, _bubbleJson(label, friend));
+
+/// Guarda el color de fondo elegido para el widget (ARGB). El painter nativo
+/// lo convierte en el degradado de la tarjeta; sin él usa el clásico.
+Future<void> saveWidgetBackground(int argb) =>
+    HomeWidget.saveWidgetData(kWidgetBgArgb, argb);
 
 /// Pide a Android que repinte los AppWidget (horizontal y vertical) con el
 /// cache recién escrito.

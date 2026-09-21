@@ -11,6 +11,19 @@ class AppColors {
   static const creamInk = Color(0xFF7A6A3F);
   static const logoBg = Color(0xFFFBEEDC);
 
+  /// Tonos suaves para el fondo del Home/perfil y del widget del escritorio
+  /// (el primero es el estándar). "Las mismas opciones" en ambos lugares.
+  static const homeBgPresets = <Color>[
+    Color(0xFFEAF3FC), // bgTop (estándar)
+    Color(0xFFFDF7EA), // crema
+    Color(0xFFFBEAF2), // rosa pálido
+    Color(0xFFE7F2FD), // celeste
+    Color(0xFFEDF9EF), // verde pálido
+    Color(0xFFFDF3E5), // arena
+    Color(0xFFF5F0FC), // malva
+    Color(0xFFFEF0E3), // durazno
+  ];
+
   /// Gradiente de fondo de Home y perfiles. Con [top] nulo o igual al
   /// [bgTop] por defecto usa el gradiente estándar de la app; con un color
   /// personalizado deriva una versión del MISMO color levemente más profunda

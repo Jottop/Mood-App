@@ -2,16 +2,15 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_comparison_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_bg">
+    android:layout_height="match_parent">
 
-    <!-- La escena renderizada en Flutter (PNG). El sistema la escala
-         conservando la proporción; el fondo redondeado lo da el drawable -->
+    <!-- El fondo redondeado con degradado lo pinta ahora el propio bitmap de
+         ComparisonWidgetPainter (color clásico o el que elija el usuario);
+         la escena ocupa el widget completo sin margen añadido. -->
     <ImageView
         android:id="@+id/comparison_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="10dp"
         android:scaleType="fitCenter"
         android:src="@drawable/widget_placeholder"
         android:contentDescription="@string/widget_comparison_label" />

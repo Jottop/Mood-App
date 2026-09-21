@@ -38,8 +38,13 @@ class MoodSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardLine),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      // Con pocas emociones reparte igual que antes (spaceEvenly); con muchas
+      // se llega al ancho disponible y se sigue en una fila nueva en vez de
+      // desbordar la tarjeta.
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 14,
+        alignment: WrapAlignment.spaceEvenly,
         children: [
           for (var i = 0; i < sorted.length; i++)
             _SummaryItem(entry: sorted[i], pct: pcts[i], view: view),

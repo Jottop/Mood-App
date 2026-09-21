@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_snackbar.dart';
 import '../../core/widgets/avatar.dart';
+import '../../core/widgets/color_row.dart';
 import '../../data/pill_capsule_prefs.dart';
 import '../../state/auth_provider.dart';
-import '../moods/widgets/custom_color_picker.dart';
 
 const _bgPresets = <Color>[
   Color(0xFFFBF3DE), // cream
@@ -28,18 +28,6 @@ const _fgPresets = <Color>[
   Color(0xFF2B6FB3), // azul
   Color(0xFF3E8E4E), // verde
   Color(0xFF7A4EA5), // violeta
-];
-
-/// Tonos suaves para el fondo del Home/perfil (el primero es el estándar).
-const _homeBgPresets = <Color>[
-  Color(0xFFEAF3FC), // bgTop (estándar)
-  Color(0xFFFDF7EA), // crema
-  Color(0xFFFBEAF2), // rosa pálido
-  Color(0xFFE7F2FD), // celeste
-  Color(0xFFEDF9EF), // verde pálido
-  Color(0xFFFDF3E5), // arena
-  Color(0xFFF5F0FC), // malva
-  Color(0xFFFEF0E3), // durazno
 ];
 
 /// Editor del perfil propio: alias, avatar de fruta animada y los colores de
@@ -155,13 +143,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 12),
-            _ColorRow(
+            ColorRow(
                 label: 'Color de la inicial',
                 current: _pillFg,
                 presets: _fgPresets,
                 onPick: (c) => setState(() => _pillFg = c)),
             const SizedBox(height: 14),
-            _ColorRow(
+            ColorRow(
                 label: 'Color del fondo del avatar',
                 current: _pillBg,
                 presets: _bgPresets,
@@ -169,7 +157,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 14),
             ValueListenableBuilder<Color>(
               valueListenable: pillCapsuleBg,
-              builder: (context, capsuleBg, _) => _ColorRow(
+              builder: (context, capsuleBg, _) => ColorRow(
                 label: 'Color de la cápsula de amigos',
                 current: capsuleBg,
                 presets: _bgPresets,
@@ -182,10 +170,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
             ),
             const SizedBox(height: 14),
-            _ColorRow(
+            ColorRow(
                 label: 'Color del fondo de perfil',
                 current: _homeBg,
-                presets: _homeBgPresets,
+                presets: AppColors.homeBgPresets,
                 onPick: (c) => setState(() => _homeBg = c)),
             const SizedBox(height: 24),
 
@@ -407,79 +395,6 @@ class _AvatarOption extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Fila de color con swatches preseleccionados + botón de color personalizado.
-class _ColorRow extends StatelessWidget {
-  final String label;
-  final Color current;
-  final List<Color> presets;
-  final ValueChanged<Color> onPick;
-
-  const _ColorRow({
-    required this.label,
-    required this.current,
-    required this.presets,
-    required this.onPick,
-  });
-
-  Future<void> _openCustom(BuildContext context) async {
-    final color = await showCustomColorPicker(context, initialColor: current);
-    if (color != null) onPick(color);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.ink)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 9,
-          runSpacing: 9,
-          children: [
-            for (final color in presets)
-              GestureDetector(
-                onTap: () => onPick(color),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: current.toARGB32() == color.toARGB32()
-                          ? AppColors.ink
-                          : AppColors.cardLine,
-                      width: current.toARGB32() == color.toARGB32() ? 2.5 : 1,
-                    ),
-                  ),
-                ),
-              ),
-            GestureDetector(
-              onTap: () => _openCustom(context),
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.cardLine),
-                ),
-                child: const Icon(Icons.add_rounded,
-                    size: 20, color: AppColors.inkSoft),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

@@ -3,6 +3,7 @@ package com.example.mood_app
 import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
@@ -94,6 +95,7 @@ object ComparisonWidgetPainter {
     layoutJson: String?,
     targetWidth: Int = 0,
     targetHeight: Int = 0,
+    bgArgb: Int = -1,
   ): Bitmap {
     val mine = Bubble.from(mineJson)
     val friend = Bubble.from(friendJson)
@@ -111,12 +113,14 @@ object ComparisonWidgetPainter {
           mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
           if (targetWidth > 0) targetWidth else VERTICAL_WIDTH,
           if (targetHeight > 0) targetHeight else VERTICAL_HEIGHT,
+          bgArgb,
       )
     } else {
       drawHorizontal(
           mineColors, friendColors, mineAura, friendAura, mineLabel, friendLabel,
           if (targetWidth > 0) targetWidth else WIDTH,
           if (targetHeight > 0) targetHeight else HEIGHT,
+          bgArgb,
       )
     }
   }
@@ -130,9 +134,12 @@ object ComparisonWidgetPainter {
     friendLabel: String,
     width: Int = WIDTH,
     height: Int = HEIGHT,
+    bgArgb: Int = -1,
   ): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
+
+    paintBackground(canvas, width, height, bgArgb)
 
     val shortSide = min(width, height)
     val margin = shortSide * 0.065f
@@ -183,9 +190,12 @@ object ComparisonWidgetPainter {
     friendLabel: String,
     width: Int = VERTICAL_WIDTH,
     height: Int = VERTICAL_HEIGHT,
+    bgArgb: Int = -1,
   ): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
+
+    paintBackground(canvas, width, height, bgArgb)
 
     val shortSide = min(width, height)
     val margin = shortSide * 0.04f
@@ -215,6 +225,79 @@ object ComparisonWidgetPainter {
     drawLabel(canvas, centerX, friendY + bubbleDiameter + (labelBand - labelFont) / 2f, labelMaxWidth, friendLabel, labelFont)
 
     return bitmap
+  }
+
+  // ──────────────────────────────────────────── fondo ────────────────────────────────────────────
+
+  /** Pinta la tarjeta redondeada de fondo (grada la escena). Sin [bgArgb]
+   *  usa el degradado clásico de `widget_bg.xml` (lavanda arriba → celeste
+   *  abajo); con un color personalizado, el MISMO degradado que `bgGradient`
+   *  en Flutter: el color elegido arriba y una versión del mismo apenas más
+   *  profunda (misma matiz y saturación, menos luz) abajo. */
+  private fun paintBackground(canvas: Canvas, width: Int, height: Int, bgArgb: Int) {
+    val shortSide = min(width, height)
+    // 28dp de radio a la escala de diseño (lado corto 220dp) → proporcional.
+    val radius = shortSide * 28f / 220f
+    val top = if (bgArgb == -1) 0xFFEBDFF7.toInt() else bgArgb
+    val bottom =
+        if (bgArgb == -1) 0xFFD9E9FB.toInt() else darken(bgArgb, lightnessDelta = 0.03f)
+    val clip = Path().apply {
+      addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW)
+    }
+    canvas.save()
+    canvas.clipPath(clip)
+    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint {
+      shader = LinearGradient(
+          0f, 0f, 0f, height.toFloat(),
+          intArrayOf(top, bottom),
+          floatArrayOf(0f, 1f),
+          Shader.TileMode.CLAMP,
+      )
+    })
+    canvas.restore()
+  }
+
+  /** RGB → HSL → baja la luminosidad → ARGB. Réplica del `withLightness` de
+   *  Flutter para que el pie del degradado del widget coincida con el del
+   *  fondo del perfil. */
+  private fun darken(argb: Int, lightnessDelta: Float): Int {
+    val rf = ((argb shr 16) and 0xFF) / 255f
+    val gf = ((argb shr 8) and 0xFF) / 255f
+    val bf = (argb and 0xFF) / 255f
+    val mx = maxOf(rf, gf, bf)
+    val mn = minOf(rf, gf, bf)
+    val l = (mx + mn) / 2f
+    val h: Float
+    val s: Float
+    if (mx == mn) {
+      h = 0f
+      s = 0f
+    } else {
+      val d = mx - mn
+      s = if (l > 0.5f) d / (2f - mx - mn) else d / (mx + mn)
+      h = when (mx) {
+        rf -> (gf - bf) / d + if (gf < bf) 6f else 0f
+        gf -> (bf - rf) / d + 2f
+        else -> (rf - gf) / d + 4f
+      } / 6f
+    }
+    val hl = (l - lightnessDelta).coerceIn(0f, 1f)
+    val q = if (hl < 0.5f) hl * (1f + s) else hl + s - hl * s
+    val p = 2f * hl - q
+    fun channel(t0: Float): Float {
+      var t = t0 % 1f
+      if (t < 0f) t += 1f
+      return when {
+        t < 1f / 6f -> p + (q - p) * 6f * t
+        t < 1f / 2f -> q
+        t < 2f / 3f -> p + (q - p) * (2f / 3f - t) * 6f
+        else -> p
+      }
+    }
+    val rr = (channel(h + 1f / 3f) * 255f).roundToInt()
+    val gg = (channel(h) * 255f).roundToInt()
+    val bb = (channel(h - 1f / 3f) * 255f).roundToInt()
+    return 0xFF000000.toInt() or (rr shl 16) or (gg shl 8) or bb
   }
 
   private fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
